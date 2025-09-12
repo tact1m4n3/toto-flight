@@ -58,16 +58,7 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [
-        [
-          "hole_clearance|122400000|75155000|d96e3532-53dc-4ba5-ab2d-a09d39e9cc90|e6314cc8-d40b-4319-b57a-da1590927309",
-          ""
-        ],
-        [
-          "hole_clearance|128500000|75155000|32a64a8b-31d9-40d6-866c-7cdea0d5ad74|f4695ff6-202c-4240-b111-e4145caab91a",
-          ""
-        ]
-      ],
+      "drc_exclusions": [],
       "meta": {
         "version": 2
       },
@@ -459,7 +450,7 @@
       "no_connect_dangling": "warning",
       "pin_not_connected": "error",
       "pin_not_driven": "error",
-      "pin_to_pin": "warning",
+      "pin_to_pin": "error",
       "power_pin_not_driven": "error",
       "same_local_global_label": "warning",
       "similar_label_and_power": "warning",
