@@ -1,4 +1,0 @@
-(sym_lib_table
-  (version 7)
-  (lib (name "toto_flight")(type "KiCad")(uri "${KIPRJMOD}/toto_flight.kicad_sym")(options "")(descr ""))
-)

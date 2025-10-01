@@ -2571,7 +2571,7 @@
 				)
 			)
 		)
-		(property "Footprint" "toto_flight:USB_C_CUSB31-CFM2AX-01-X"
+		(property "Footprint" "power:USB_C_CUSB31-CFM2AX-01-X"
 			(at 3.81 0 0)
 			(effects
 				(font
