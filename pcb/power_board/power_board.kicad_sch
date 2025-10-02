@@ -1146,7 +1146,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:5V_BEC"
+		(symbol "power_board:5V_BEC"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -1271,7 +1271,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:GND"
+		(symbol "power_board:GND"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -1372,7 +1372,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:MP9447"
+		(symbol "power_board:MP9447"
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -1910,7 +1910,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:VBAT"
+		(symbol "power_board:VBAT"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -2035,7 +2035,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:VBAT_P"
+		(symbol "power_board:VBAT_P"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -2855,7 +2855,7 @@
 			(uuid "72d641fc-a3f2-40e7-8e98-559ecc35d81f")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "D4")
 					(unit 1)
@@ -2864,7 +2864,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:5V_BEC")
+		(lib_id "power_board:5V_BEC")
 		(at 168.91 53.34 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -2922,7 +2922,7 @@
 			(uuid "c1ab52c6-ba31-41f9-8eda-114172dcbaa3")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR01")
 					(unit 1)
@@ -3062,7 +3062,7 @@
 			(uuid "2c439bf3-bc51-4b6d-91b9-9b4abdc22218")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C26")
 					(unit 1)
@@ -3214,7 +3214,7 @@
 			(uuid "14c11209-4b78-4a5b-b87f-337ee894e74e")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C30")
 					(unit 1)
@@ -3223,7 +3223,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
+		(lib_id "power_board:GND")
 		(at 55.88 110.49 270)
 		(unit 1)
 		(exclude_from_sim no)
@@ -3281,7 +3281,7 @@
 			(uuid "02909de1-519f-4811-96ef-9eda27e134ca")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR058")
 					(unit 1)
@@ -3358,7 +3358,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
+		(lib_id "power_board:GND")
 		(at 128.27 133.35 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -3483,7 +3483,7 @@
 			(uuid "bed8b3f4-4f38-4b58-a603-c717f937d7e5")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C29")
 					(unit 1)
@@ -3492,7 +3492,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
+		(lib_id "power_board:GND")
 		(at 48.26 66.04 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -3550,7 +3550,7 @@
 			(uuid "af350620-a974-4b36-aa06-b17e9fcc2801")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR062")
 					(unit 1)
@@ -3559,7 +3559,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:VBAT_P")
+		(lib_id "power_board:VBAT_P")
 		(at 78.74 55.88 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -3617,7 +3617,7 @@
 			(uuid "4ed5df53-2f74-4d27-8734-4cd6af7a2f9d")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR083")
 					(unit 1)
@@ -3626,7 +3626,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:MP9447")
+		(lib_id "power_board:MP9447")
 		(at 74.93 95.25 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -3652,7 +3652,7 @@
 				(hide yes)
 			)
 		)
-		(property "Footprint" "power:QFN25_MP9447_MNP"
+		(property "Footprint" "power_board:QFN25_MP9447_MNP"
 			(at 74.93 95.25 0)
 			(effects
 				(font
@@ -3764,7 +3764,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
+		(lib_id "power_board:GND")
 		(at 44.45 106.68 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -3830,7 +3830,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:VBAT_P")
+		(lib_id "power_board:VBAT_P")
 		(at 26.67 93.98 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -3897,7 +3897,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
+		(lib_id "power_board:GND")
 		(at 88.9 60.96 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4022,7 +4022,7 @@
 			(uuid "bcf0da13-67f8-41e8-9b77-4c954befc5da")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R18")
 					(unit 1)
@@ -4092,7 +4092,7 @@
 			(uuid "1d91426e-bcbd-439a-ab97-d018346ed0d8")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R20")
 					(unit 1)
@@ -4178,7 +4178,7 @@
 	)
 	(symbol
 		(lib_name "5V_BEC_1")
-		(lib_id "power:5V_BEC")
+		(lib_id "power_board:5V_BEC")
 		(at 88.9 43.18 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4244,7 +4244,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:5V_BEC")
+		(lib_id "power_board:5V_BEC")
 		(at 168.91 66.04 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4302,7 +4302,7 @@
 			(uuid "68b4e920-895f-48dd-adbc-dcda0f07f35c")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR02")
 					(unit 1)
@@ -4372,7 +4372,7 @@
 			(uuid "788ed120-5187-44d8-97da-5b9eefaa2715")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R17")
 					(unit 1)
@@ -4381,7 +4381,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
+		(lib_id "power_board:GND")
 		(at 62.23 83.82 180)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4438,7 +4438,7 @@
 			(uuid "bc341867-8b7d-48ab-99ce-b27527503442")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR056")
 					(unit 1)
@@ -4578,7 +4578,7 @@
 			(uuid "36cdff51-fb68-4877-b0a6-b72b2555ce4d")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R19")
 					(unit 1)
@@ -4648,7 +4648,7 @@
 			(uuid "1181a821-437e-4b27-b1a2-06483002da60")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C28")
 					(unit 1)
@@ -4657,7 +4657,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
+		(lib_id "power_board:GND")
 		(at 34.29 104.14 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4714,7 +4714,7 @@
 			(uuid "f3b81497-72a8-46fd-bb0a-87507867d2ab")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR054")
 					(unit 1)
@@ -4723,7 +4723,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:VBAT")
+		(lib_id "power_board:VBAT")
 		(at 35.56 50.8 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4851,7 +4851,7 @@
 			(uuid "dbab5fa9-7582-4ec0-9903-8838218edf90")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C31")
 					(unit 1)
@@ -4860,7 +4860,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:5V_BEC")
+		(lib_id "power_board:5V_BEC")
 		(at 165.1 104.14 270)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4986,7 +4986,7 @@
 			(uuid "b09d6e02-5919-42ea-99c7-7b2d30a874ea")
 		)
 		(instances
-			(project "power"
+			(project "power_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C27")
 					(unit 1)

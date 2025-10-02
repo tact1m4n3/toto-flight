@@ -247,7 +247,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/0e01e9ff-b68a-4dac-a28c-20d8b35ab450")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -391,7 +391,7 @@
 			)
 		)
 	)
-	(footprint "main:analog_pads"
+	(footprint "fc_board:analog_pads"
 		(layer "F.Cu")
 		(uuid "177acf51-0e78-4da7-9097-d5c7618addbe")
 		(at 139.35 89.3)
@@ -449,7 +449,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/38160bd5-a5ef-40f9-8bc4-8856b43f8107")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd dnp)
 		(fp_line
 			(start 0 0)
@@ -541,7 +541,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(footprint "main:USB_C_017"
+	(footprint "fc_board:USB_C_017"
 		(layer "F.Cu")
 		(uuid "17847d42-138d-4a30-997d-ec8802afd168")
 		(at 125.45 71.9 180)
@@ -600,7 +600,7 @@
 		(property ki_fp_filters "USB*C*Receptacle*")
 		(path "/a69a3443-127a-4518-9a59-457fd6e45b16")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start 4.67 -0.1)
@@ -916,7 +916,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/a8740c2d-602f-41ff-82e3-282fefef68e9")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -1115,7 +1115,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/48d9cf9c-e5b8-45d8-aea9-116a2bb57895")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -1259,7 +1259,7 @@
 			)
 		)
 	)
-	(footprint "main:RP2350-QFN-60-1EP_7x7_P0.4mm_EP3.4x3.4mm_ThermalVias"
+	(footprint "fc_board:RP2350-QFN-60-1EP_7x7_P0.4mm_EP3.4x3.4mm_ThermalVias"
 		(layer "F.Cu")
 		(uuid "199ed882-2957-4200-85b9-bdbd9e4f3a54")
 		(at 125.45 98)
@@ -1313,7 +1313,7 @@
 		)
 		(path "/01360ae9-7b0c-48e3-a2bb-ba91bb9c6a4c")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(zone_connect 2)
 		(attr smd)
 		(fp_line
@@ -2382,7 +2382,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/33c2a8cd-44f2-4aae-93f4-cbff3f2da7ac")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 0.38)
@@ -2581,7 +2581,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/fb2ceb10-7e79-4ea9-bde8-fce981c80a39")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 0.38)
@@ -2780,7 +2780,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/063477a6-e253-4077-9583-2656be88cf55")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -2924,7 +2924,7 @@
 			)
 		)
 	)
-	(footprint "main:L_pol_2016"
+	(footprint "fc_board:L_pol_2016"
 		(layer "F.Cu")
 		(uuid "275cfae6-aba3-4593-bba8-12ffa8d7f226")
 		(at 127.45 90.85)
@@ -2978,7 +2978,7 @@
 		(property ki_fp_filters "Choke_* *Coil* Inductor_* L_*")
 		(path "/dfb65519-0e5f-4591-b816-19a9adf33c1a")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_circle
 			(center -0.9 -1.3)
@@ -3179,7 +3179,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/a14397f4-6d1f-433e-b0d9-85242f161a44")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -3378,7 +3378,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/50b607bd-9d5a-4330-a720-2390ab380311")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -3522,7 +3522,7 @@
 			)
 		)
 	)
-	(footprint "main:BMP280"
+	(footprint "fc_board:BMP280"
 		(layer "F.Cu")
 		(uuid "33c00510-a874-4685-bde2-3ae6c8469925")
 		(at 113.275 101.65)
@@ -3579,7 +3579,7 @@
 		(property ki_fp_filters "Bosch*LGA*2x2.5mm*P0.65mm*")
 		(path "/dd8498d2-4dde-4f13-9e9a-2838e75c57d3")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -1.35 -0.46)
@@ -3917,7 +3917,7 @@
 		(property ki_fp_filters "LED* LED_SMD:* LED_THT:*")
 		(path "/95c8ff36-b81a-4d68-8af2-d69d17e1b522")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_circle
 			(center -1.09 0)
@@ -4129,7 +4129,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/c47bce18-e4bf-4bbf-ba4e-fe3251178834")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -4328,7 +4328,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/748a0815-0c29-4e80-b1d8-585815559b1c")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -4527,7 +4527,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/3f6b3476-211c-47d8-8639-b1fbbb857501")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -4726,7 +4726,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/c9019637-15db-4754-9d2c-ae59311a4a22")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -4924,7 +4924,7 @@
 		(property ki_fp_filters "Crystal*")
 		(path "/1731d356-a859-4d60-95ba-0baaefa00d42")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -2.06 -1.71)
@@ -5088,7 +5088,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/4a4606c3-0634-4e1f-b48c-95069bc45ed8")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -5289,7 +5289,7 @@
 		(property ki_fp_filters "SOT?223*TabPin2*")
 		(path "/1fc88b80-4383-4db6-b2a4-2ac8ce31018e")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -1.85 3.41)
@@ -5552,7 +5552,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/8bfa1d97-cf0b-408b-b39c-ed68f16acba7")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -5696,7 +5696,7 @@
 			)
 		)
 	)
-	(footprint "main:esc_power_pads"
+	(footprint "fc_board:esc_power_pads"
 		(layer "F.Cu")
 		(uuid "56e468b1-4eee-489d-9bf1-7c050790be4d")
 		(at 140.85 80.5875 90)
@@ -5754,7 +5754,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/bc93af66-2247-41fc-910f-c16ca8edf865")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd dnp)
 		(fp_line
 			(start 3 0)
@@ -5830,7 +5830,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(footprint "main:gpio_2_pads"
+	(footprint "fc_board:gpio_2_pads"
 		(layer "F.Cu")
 		(uuid "5780e612-a12e-472e-afe2-18f2e8125aee")
 		(at 130.4 115.6)
@@ -5888,7 +5888,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/f4a09fae-c5bb-4b3a-b5f3-da11d76ef914")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd dnp)
 		(fp_line
 			(start 0 0)
@@ -6028,7 +6028,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(footprint "main:C_0402_1005Metric_small_pads"
+	(footprint "fc_board:C_0402_1005Metric_small_pads"
 		(layer "F.Cu")
 		(uuid "59c0bbf0-da43-4929-9226-934aefbc5796")
 		(at 127.45 93.35)
@@ -6083,7 +6083,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/06c057e0-3767-455e-af52-721022191bba")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.91 -0.46)
@@ -6260,7 +6260,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/f9ca85b6-48ea-47aa-9df6-5cd07be334d2")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -6459,7 +6459,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/953061b4-91c5-4444-80b1-3f6fca2df38e")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -6658,7 +6658,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/e5b29346-d385-4150-bc02-a38bd1da6769")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 0.38)
@@ -6857,7 +6857,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/64ad12c7-4971-4670-b6a8-7d6f18a768d9")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -7001,7 +7001,7 @@
 			)
 		)
 	)
-	(footprint "main:pwm_pins"
+	(footprint "fc_board:pwm_pins"
 		(layer "F.Cu")
 		(uuid "706206b7-ecf7-48ae-9c21-e4b8f340be80")
 		(at 138.92 97.7)
@@ -7059,7 +7059,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/8fc02350-d2b6-4eaa-84cd-e3d488a41ad1")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd dnp)
 		(fp_line
 			(start 0.1 0.1)
@@ -7375,7 +7375,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/80115d45-ac18-4726-a349-968cda38753d")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -7519,7 +7519,7 @@
 			)
 		)
 	)
-	(footprint "main:C_0402_1005Metric_small_pads"
+	(footprint "fc_board:C_0402_1005Metric_small_pads"
 		(layer "F.Cu")
 		(uuid "76a472d7-4f16-412e-bfea-5f2aef7595f6")
 		(at 127.45 92.4)
@@ -7574,7 +7574,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/27166f40-0568-4252-b761-88caf7dc8598")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.91 -0.46)
@@ -7751,7 +7751,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/aabed238-6037-4c17-9d4d-d5bb37d66ba3")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -7950,7 +7950,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/4c479c85-712c-4857-a343-8487b887a3eb")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -8094,7 +8094,7 @@
 			)
 		)
 	)
-	(footprint "main:LGA14_2P5X3X0P91_TDK"
+	(footprint "fc_board:LGA14_2P5X3X0P91_TDK"
 		(layer "F.Cu")
 		(uuid "86a6017a-8a90-4fc0-aa1c-c4c53d9b405e")
 		(at 114 94.250001 -90)
@@ -8150,7 +8150,7 @@
 		(property ki_fp_filters "LGA14_2P5X3X0P91_TDK LGA14_2P5X3X0P91_TDK-M LGA14_2P5X3X0P91_TDK-L")
 		(path "/9b9a70f9-f192-4ae0-9f23-77df96633b90")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -1.6256 1.3716)
@@ -9306,7 +9306,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/e285b264-5e08-4b8d-bbd7-e3deea97055f")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr through_hole)
 		(fp_line
 			(start -1.38 -1.38)
@@ -9572,7 +9572,7 @@
 		(property ki_fp_filters "D*SOD?123F*")
 		(path "/4ee14a88-7800-42d0-96d6-9d65b239be3f")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -2.21 -1)
@@ -9853,7 +9853,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/797a6307-ca9e-4e89-bb91-9718476cde41")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -10052,7 +10052,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/a00441f5-fcd1-4ec7-9734-1113d1448973")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -10251,7 +10251,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/c9d3fc1f-beeb-4525-9381-07afac6df21c")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 0.735)
@@ -10450,7 +10450,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/6cee73a0-ff8c-40fb-8ed1-29810c9b826d")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -10649,7 +10649,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/7e6efc63-d9e4-49be-89b8-b3e951bfb6ed")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -10793,7 +10793,7 @@
 			)
 		)
 	)
-	(footprint "main:MOLEX_104031-0811"
+	(footprint "fc_board:MOLEX_104031-0811"
 		(layer "F.Cu")
 		(uuid "a0541f63-322b-4740-b9b9-b317915ef2d7")
 		(at 116.5 114.738 180)
@@ -10850,7 +10850,7 @@
 		(property ki_fp_filters "microSD*")
 		(path "/91ac87a9-551d-4533-9d9e-fba3895e3268")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(fp_line
 			(start 5.975 0.15)
 			(end 5.975 4.3)
@@ -11248,7 +11248,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/96ec843c-3b98-4d59-a82f-90cbd401e710")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -11447,7 +11447,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/57700968-4fdf-4a62-830e-408407ce2f5f")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -11646,7 +11646,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/a5fcfc57-e5f4-4186-a756-85c0645e1ea6")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -11847,7 +11847,7 @@
 		(property ki_fp_filters "D*SOD?123F*")
 		(path "/a53d3407-a1e5-4ddb-9220-1606e2c83e13")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -2.21 1)
@@ -12128,7 +12128,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/5c3e463c-8051-4d41-8431-5140749a262a")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -12327,7 +12327,7 @@
 		(property ki_fp_filters "*SOIC*5.3x5.3mm*P1.27mm*")
 		(path "/568ea767-71be-4df5-9672-d82b98bd7143")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -2.76 -2.76)
@@ -12712,7 +12712,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/1bc7d4c8-d9d9-4756-b485-ece0232e3ca2")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -12911,7 +12911,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/651f3389-4140-4063-aae4-1fca9deb07dc")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 -0.36)
@@ -13110,7 +13110,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/cbcb64d9-7dca-484d-8527-c681336b7ac2")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -13254,7 +13254,7 @@
 			)
 		)
 	)
-	(footprint "main:gpio_pads"
+	(footprint "fc_board:gpio_pads"
 		(layer "F.Cu")
 		(uuid "e8396003-8f4b-436c-a49a-e673aecf06ad")
 		(at 103.85 86.5)
@@ -13312,7 +13312,7 @@
 		(property ki_fp_filters "Connector*:*_1x??_*")
 		(path "/24c104f3-9603-4101-b1ef-227110f06ed9")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd dnp)
 		(fp_line
 			(start 0 0)
@@ -13591,7 +13591,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/393f01ce-4336-42bc-a9c0-d2baa4ab44c1")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 -0.38)
@@ -13790,7 +13790,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/7b4e447f-64a4-4575-9648-33410a021070")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.261252 0.735)
@@ -13989,7 +13989,7 @@
 		(property ki_fp_filters "R_*")
 		(path "/ca6d8956-de36-42d5-915e-ed0fa3bf065f")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.153641 0.38)
@@ -14188,7 +14188,7 @@
 		(property ki_fp_filters "C_*")
 		(path "/cad66a94-028f-434c-b9d6-ef5dc3dc424f")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -0.107836 0.36)
@@ -14388,7 +14388,7 @@
 		)
 		(path "/55646f63-9b83-4022-9f99-0762e881c8ac")
 		(sheetname "/")
-		(sheetfile "main.kicad_sch")
+		(sheetfile "fc_board.kicad_sch")
 		(attr smd)
 		(fp_line
 			(start -2.2 1.55)

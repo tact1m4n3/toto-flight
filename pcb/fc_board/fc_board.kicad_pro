@@ -471,7 +471,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "power.kicad_pro",
+    "filename": "fc_board.kicad_pro",
     "version": 3
   },
   "net_settings": {

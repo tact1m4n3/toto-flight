@@ -5471,7 +5471,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "main:3v3_IMU"
+		(symbol "fc_board:3v3_IMU"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -5596,7 +5596,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "main:5V_BEC"
+		(symbol "fc_board:5V_BEC"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -5721,7 +5721,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "main:ICM-42688-P"
+		(symbol "fc_board:ICM-42688-P"
 			(pin_names
 				(offset 0.254)
 			)
@@ -6103,7 +6103,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "main:Micro_SD_Card"
+		(symbol "fc_board:Micro_SD_Card"
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -6544,7 +6544,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "main:RP2350_60QFN"
+		(symbol "fc_board:RP2350_60QFN"
 			(pin_names
 				(offset 1.016)
 			)
@@ -7729,7 +7729,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "main:USB_C"
+		(symbol "fc_board:USB_C"
 			(pin_names
 				(offset 1.016)
 			)
@@ -7752,7 +7752,7 @@
 					)
 				)
 			)
-			(property "Footprint" "main:USB_C_CUSB31-CFM2AX-01-X"
+			(property "Footprint" "fc_board:USB_C_CUSB31-CFM2AX-01-X"
 				(at 3.81 0 0)
 				(effects
 					(font
@@ -14828,7 +14828,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:RP2350_60QFN")
+		(lib_id "fc_board:RP2350_60QFN")
 		(at 102.87 104.14 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -14855,7 +14855,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "main:RP2350-QFN-60-1EP_7x7_P0.4mm_EP3.4x3.4mm_ThermalVias"
+		(property "Footprint" "fc_board:RP2350-QFN-60-1EP_7x7_P0.4mm_EP3.4x3.4mm_ThermalVias"
 			(at 83.82 104.14 0)
 			(effects
 				(font
@@ -15203,7 +15203,7 @@
 			(uuid "35f72463-e7d6-4219-bb51-455a0d676b2e")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C19")
 					(unit 1)
@@ -15239,7 +15239,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "main:C_0402_1005Metric_small_pads"
+		(property "Footprint" "fc_board:C_0402_1005Metric_small_pads"
 			(at 28.9052 66.04 0)
 			(effects
 				(font
@@ -15273,7 +15273,7 @@
 			(uuid "4a7bcd3e-b8d3-4d46-96bc-eb0e2974ee4e")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C12")
 					(unit 1)
@@ -15343,7 +15343,7 @@
 			(uuid "61a7d5fa-4db6-4448-aa41-d19bfb50c163")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C33")
 					(unit 1)
@@ -15453,7 +15453,7 @@
 			(uuid "6d1e9545-d20e-41ed-9169-6ae07b241f96")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "RN1")
 					(unit 1)
@@ -15590,7 +15590,7 @@
 			(uuid "262bd45a-d7f9-4b23-a41d-09f08cbe37b0")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C11")
 					(unit 1)
@@ -15724,7 +15724,7 @@
 			(uuid "fd192720-9265-4dcd-97c5-9f406e8a45ac")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R18")
 					(unit 1)
@@ -15996,7 +15996,7 @@
 			(uuid "752b6ad5-ff90-487b-ab9b-25f25f8a7bf1")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR060")
 					(unit 1)
@@ -16082,7 +16082,7 @@
 			(uuid "84790b9b-ca92-462a-bfb8-50ceeb884898")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "U9")
 					(unit 1)
@@ -16354,7 +16354,7 @@
 			(uuid "80c47f2e-3b1d-4e6b-8a2f-ad8e9a5cb3a5")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR038")
 					(unit 1)
@@ -16390,7 +16390,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "main:C_0402_1005Metric_small_pads"
+		(property "Footprint" "fc_board:C_0402_1005Metric_small_pads"
 			(at 41.6052 80.01 0)
 			(effects
 				(font
@@ -16424,7 +16424,7 @@
 			(uuid "b4d82d7d-1d6c-420b-b5fb-d341098ff70f")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C13")
 					(unit 1)
@@ -16626,7 +16626,7 @@
 			(uuid "453bd755-9af1-4a41-8041-e772b854b809")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR063")
 					(unit 1)
@@ -16702,7 +16702,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 398.78 318.77 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -16760,7 +16760,7 @@
 			(uuid "0844ae8f-0604-4245-b00e-b5a094b4a028")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR052")
 					(unit 1)
@@ -16895,7 +16895,7 @@
 			(uuid "f3294899-63d8-4820-add9-d4f932db42ea")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R13")
 					(unit 1)
@@ -16904,7 +16904,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:3v3_IMU")
+		(lib_id "fc_board:3v3_IMU")
 		(at 242.57 63.5 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -17097,7 +17097,7 @@
 			(uuid "9d157566-eedd-48c0-87f5-558fdac86056")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R12")
 					(unit 1)
@@ -17167,7 +17167,7 @@
 			(uuid "2c5fbc3e-156c-406d-88b9-60f3cad869d3")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R26")
 					(unit 1)
@@ -17176,7 +17176,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 398.78 306.07 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -17301,7 +17301,7 @@
 			(uuid "102e149f-c320-4eaf-a517-f65b682f6d81")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR061")
 					(unit 1)
@@ -17503,7 +17503,7 @@
 			(uuid "ba0aa330-49e3-47a5-a9e1-daa5534217bc")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR059")
 					(unit 1)
@@ -17655,7 +17655,7 @@
 			(uuid "5808714f-2093-4a00-9836-6c2746fe39df")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "U6")
 					(unit 1)
@@ -17941,7 +17941,7 @@
 			(uuid "fd81d1d9-428a-4286-8696-dd073eadfd2a")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R27")
 					(unit 1)
@@ -18212,7 +18212,7 @@
 			(uuid "e253058e-72c1-4730-af3c-8e0476701bf7")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R8")
 					(unit 1)
@@ -18280,7 +18280,7 @@
 			(uuid "7e0c6d45-534d-4344-ba54-cd97f8b82aca")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R22")
 					(unit 1)
@@ -18350,7 +18350,7 @@
 			(uuid "c20021ab-90b4-4601-880e-a6e9c908cd47")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C7")
 					(unit 1)
@@ -18551,7 +18551,7 @@
 			)
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "H4")
 					(unit 1)
@@ -18627,7 +18627,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 331.47 322.58 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -18685,7 +18685,7 @@
 			(uuid "5412bdb9-3fd6-4a89-ba67-a15cbaeac52b")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR077")
 					(unit 1)
@@ -18749,7 +18749,7 @@
 			)
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "H3")
 					(unit 1)
@@ -18815,7 +18815,7 @@
 			(uuid "887056fd-0091-4e0e-9526-e5d2d40b0fe7")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR056")
 					(unit 1)
@@ -18972,7 +18972,7 @@
 			(uuid "2ec35e85-a5b4-4684-8b23-45fcca49319b")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C16")
 					(unit 1)
@@ -19142,7 +19142,7 @@
 			(uuid "90992cb8-474d-4f25-9c5b-f4123eab18b7")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C20")
 					(unit 1)
@@ -19275,7 +19275,7 @@
 			(uuid "6cbd43b9-2ee7-431f-9b4e-f2b9cbdc5dfa")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR037")
 					(unit 1)
@@ -19284,7 +19284,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:USB_C")
+		(lib_id "fc_board:USB_C")
 		(at 43.18 304.8 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -19309,7 +19309,7 @@
 				)
 			)
 		)
-		(property "Footprint" "main:YTC-TC8S-126"
+		(property "Footprint" "fc_board:YTC-TC8S-126"
 			(at 46.99 304.8 0)
 			(effects
 				(font
@@ -19434,7 +19434,7 @@
 			(uuid "8222e0db-3b57-4fbd-b407-927aaec41c60")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR050")
 					(unit 1)
@@ -19501,7 +19501,7 @@
 			(uuid "456db264-b737-4732-8890-2a262dc5166e")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR036")
 					(unit 1)
@@ -19639,7 +19639,7 @@
 			(uuid "a3c8cdbf-03d3-4941-a836-acf0b87682a3")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C10")
 					(unit 1)
@@ -19842,7 +19842,7 @@
 			(uuid "5bf7d087-d3fe-45b3-b203-5b992ba05eb1")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R20")
 					(unit 1)
@@ -19851,7 +19851,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:3v3_IMU")
+		(lib_id "fc_board:3v3_IMU")
 		(at 279.4 39.37 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -19908,7 +19908,7 @@
 			(uuid "d7109329-d41a-4589-840e-a40b22c715ff")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR065")
 					(unit 1)
@@ -19917,7 +19917,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 331.47 307.34 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -19975,7 +19975,7 @@
 			(uuid "c497614b-f2c3-4c4a-86fb-f6a3b8fc7f4b")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR075")
 					(unit 1)
@@ -20045,7 +20045,7 @@
 			(uuid "85e71e70-de7d-40d2-b8dc-613c91dfd19e")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C26")
 					(unit 1)
@@ -20112,7 +20112,7 @@
 			(uuid "b5246930-a2dc-4cb3-aefc-d24330609da6")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R4")
 					(unit 1)
@@ -20187,7 +20187,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:3v3_IMU")
+		(lib_id "fc_board:3v3_IMU")
 		(at 257.81 97.79 270)
 		(unit 1)
 		(exclude_from_sim no)
@@ -20379,7 +20379,7 @@
 			(uuid "c3cd4c3a-7ae3-4826-b259-040592f536eb")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C34")
 					(unit 1)
@@ -20462,7 +20462,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:3v3_IMU")
+		(lib_id "fc_board:3v3_IMU")
 		(at 281.94 66.04 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -20520,7 +20520,7 @@
 			(uuid "ecad2e73-4cf2-440f-b198-67375a21b385")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR028")
 					(unit 1)
@@ -20590,7 +20590,7 @@
 			(uuid "11bb615e-b7eb-4cf0-a963-faac37dab48b")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C4")
 					(unit 1)
@@ -20660,7 +20660,7 @@
 			(uuid "6179d6a0-fdab-4c1b-a575-524a3f6b2269")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C18")
 					(unit 1)
@@ -20730,7 +20730,7 @@
 			(uuid "c1a84a2b-529f-40eb-81a7-3b9befbaab57")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "D4")
 					(unit 1)
@@ -20797,7 +20797,7 @@
 			(uuid "bd853e23-d8b9-4e64-88bf-4050f9af3133")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR033")
 					(unit 1)
@@ -20867,7 +20867,7 @@
 			(uuid "79715e8c-88f9-4529-b0fe-c7c2ff7ca8bb")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C22")
 					(unit 1)
@@ -20937,7 +20937,7 @@
 			(uuid "db336c50-6073-4315-b20b-9b24873bb086")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C5")
 					(unit 1)
@@ -21003,7 +21003,7 @@
 			(uuid "89202576-ea96-4d58-9849-d482e0c1723b")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR085")
 					(unit 1)
@@ -21012,7 +21012,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 331.47 314.96 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -21070,7 +21070,7 @@
 			(uuid "2bb6f902-d35c-4bb2-929c-56372f0a3771")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR076")
 					(unit 1)
@@ -21208,7 +21208,7 @@
 			(uuid "2b3e9661-4a2e-43dc-b7d9-d0ffeaaba78a")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C9")
 					(unit 1)
@@ -21317,7 +21317,7 @@
 			(uuid "646e662e-cf7e-448d-aa2d-9fa6a3497a74")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "RN2")
 					(unit 1)
@@ -21326,7 +21326,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:Micro_SD_Card")
+		(lib_id "fc_board:Micro_SD_Card")
 		(at 349.25 179.07 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -21350,7 +21350,7 @@
 				)
 			)
 		)
-		(property "Footprint" "main:MOLEX_104031-0811"
+		(property "Footprint" "fc_board:MOLEX_104031-0811"
 			(at 401.32 161.29 0)
 			(effects
 				(font
@@ -21488,7 +21488,7 @@
 			(uuid "511fe8ce-3398-4254-9eac-ed6a9ee45abd")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C23")
 					(unit 1)
@@ -21774,7 +21774,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:ICM-42688-P")
+		(lib_id "fc_board:ICM-42688-P")
 		(at 261.62 45.72 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -21799,7 +21799,7 @@
 				)
 			)
 		)
-		(property "Footprint" "main:LGA14_2P5X3X0P91_TDK"
+		(property "Footprint" "fc_board:LGA14_2P5X3X0P91_TDK"
 			(at 294.64 45.72 0)
 			(effects
 				(font
@@ -22005,7 +22005,7 @@
 			(uuid "03776c1d-5714-4304-8d4b-48b8155c8c14")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR046")
 					(unit 1)
@@ -22138,7 +22138,7 @@
 			(uuid "6fab86d1-e8aa-4f5e-9aeb-e6ad4741d8a6")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR064")
 					(unit 1)
@@ -22208,7 +22208,7 @@
 			(uuid "48757980-691f-4e45-a5d4-284b5d365969")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C2")
 					(unit 1)
@@ -22629,7 +22629,7 @@
 			(uuid "2b654e6f-4e0d-42e7-b37f-24e60a87ab2c")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR058")
 					(unit 1)
@@ -22767,7 +22767,7 @@
 			(uuid "e0305037-7258-41a6-b0b2-9ae6a273c113")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C6")
 					(unit 1)
@@ -22831,7 +22831,7 @@
 			)
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "H2")
 					(unit 1)
@@ -22964,7 +22964,7 @@
 			(uuid "e9c66621-044b-4c6a-b31f-279fbeaeeb08")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR084")
 					(unit 1)
@@ -23040,7 +23040,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 331.47 269.24 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -23497,7 +23497,7 @@
 			(uuid "3c6b0598-4508-4bcd-b087-614407bd69d5")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R11")
 					(unit 1)
@@ -23564,7 +23564,7 @@
 			(uuid "0167897e-4df8-4039-8a24-0e5ca63c5feb")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR047")
 					(unit 1)
@@ -23632,7 +23632,7 @@
 			(uuid "ad1a6a9b-5b25-4158-83ab-2f045271af64")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C24")
 					(unit 1)
@@ -23839,7 +23839,7 @@
 			(uuid "515bcda8-f2fb-4d80-9125-6fd3479a1905")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R15")
 					(unit 1)
@@ -23979,7 +23979,7 @@
 			(uuid "115c3ece-2587-4585-8c93-159ba86aaf40")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C21")
 					(unit 1)
@@ -24116,7 +24116,7 @@
 			(uuid "db857839-b233-4a12-874b-c3bbce3be543")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "C3")
 					(unit 1)
@@ -24184,7 +24184,7 @@
 			(uuid "153f2a50-2253-4443-b7f0-72237b31c7b0")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "D2")
 					(unit 1)
@@ -24193,7 +24193,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 63.5 267.97 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -24318,7 +24318,7 @@
 			(uuid "1cd26370-ab4b-4e90-a7f5-8a5d53064ce2")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR055")
 					(unit 1)
@@ -24386,7 +24386,7 @@
 			(uuid "a4dd7370-1c0e-40ca-b007-297c87fe70a6")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R21")
 					(unit 1)
@@ -24453,7 +24453,7 @@
 			(uuid "65898ab9-a602-4f8a-b358-a635d45269b2")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R23")
 					(unit 1)
@@ -24622,7 +24622,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "main:BMP280"
+		(property "Footprint" "fc_board:BMP280"
 			(at 323.85 146.05 0)
 			(effects
 				(font
@@ -24683,7 +24683,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:3v3_IMU")
+		(lib_id "fc_board:3v3_IMU")
 		(at 323.85 106.68 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -24776,7 +24776,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "main:L_pol_2016"
+		(property "Footprint" "fc_board:L_pol_2016"
 			(at 53.34 73.66 0)
 			(effects
 				(font
@@ -24877,7 +24877,7 @@
 			(uuid "133c772e-b298-41c2-93f2-0f0457a77ad1")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR049")
 					(unit 1)
@@ -25289,7 +25289,7 @@
 			(uuid "61e21bfa-ebbe-460c-a128-c9659f550d31")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R14")
 					(unit 1)
@@ -25359,7 +25359,7 @@
 			(uuid "8b26f7d4-1c45-441b-b787-e6ea06b923e1")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R19")
 					(unit 1)
@@ -25429,7 +25429,7 @@
 			(uuid "788984ba-8bf4-4b7b-8bf0-5f036d1d770f")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "D5")
 					(unit 1)
@@ -25438,7 +25438,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 331.47 259.08 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -25496,7 +25496,7 @@
 			(uuid "799d669d-9234-4eab-a302-8766672fe8d3")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR039")
 					(unit 1)
@@ -25563,7 +25563,7 @@
 			(uuid "b517ab60-b8f0-43fa-9b56-4f5f2c96096a")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR031")
 					(unit 1)
@@ -25630,7 +25630,7 @@
 			(uuid "2b039625-4b3e-4a9f-a7cf-c7e396de53d3")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR051")
 					(unit 1)
@@ -25697,7 +25697,7 @@
 			(uuid "20b4168c-cf6e-41fe-9f50-285d0afde59c")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR048")
 					(unit 1)
@@ -25767,7 +25767,7 @@
 			(uuid "77225930-ae38-4722-a1a5-341607ca6da0")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "R17")
 					(unit 1)
@@ -25776,7 +25776,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 331.47 279.4 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -25834,7 +25834,7 @@
 			(uuid "90b2044d-502d-496e-b3b2-ecbf1b016c9a")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR073")
 					(unit 1)
@@ -25905,7 +25905,7 @@
 			(uuid "5e74dc6a-2ce8-4bee-b7e8-694181e3b647")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "U8")
 					(unit 1)
@@ -26184,7 +26184,7 @@
 		)
 	)
 	(symbol
-		(lib_id "main:5V_BEC")
+		(lib_id "fc_board:5V_BEC")
 		(at 331.47 299.72 90)
 		(unit 1)
 		(exclude_from_sim no)
@@ -26242,7 +26242,7 @@
 			(uuid "34a0db80-9d2e-44ba-9312-d4e8f46c3d10")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR074")
 					(unit 1)
@@ -26308,7 +26308,7 @@
 			(uuid "555b2d17-fccf-4c10-8dfc-9e2bab9ec4c8")
 		)
 		(instances
-			(project "main"
+			(project "fc_board"
 				(path "/0259efb7-694a-4ce2-9998-fdf65c8a3c90"
 					(reference "#PWR062")
 					(unit 1)
