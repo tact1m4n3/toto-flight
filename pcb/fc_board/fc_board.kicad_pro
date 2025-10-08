@@ -635,6 +635,14 @@
       "version": 1
     },
     "net_format_name": "",
+    "ngspice": {
+      "fix_include_paths": true,
+      "meta": {
+        "version": 0
+      },
+      "model_mode": 4,
+      "workbook_filename": ""
+    },
     "page_layout_descr_file": "",
     "plot_directory": "",
     "space_save_all_events": true,
@@ -651,6 +659,18 @@
     [
       "0259efb7-694a-4ce2-9998-fdf65c8a3c90",
       "Root"
+    ],
+    [
+      "d9c2b573-eea2-4a2b-bf10-eb0cc4681e30",
+      "Peripherals"
+    ],
+    [
+      "445e36bc-e5a6-4973-82cb-3dfc429b90e9",
+      "Connectors"
+    ],
+    [
+      "44b1055c-2bd5-4beb-be10-efb9954b0934",
+      "USB-C and POWER"
     ]
   ],
   "text_variables": {}
