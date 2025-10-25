@@ -1,5 +1,6 @@
 const std = @import("std");
 const microzig = @import("microzig");
+const zprobe = @import("zprobe");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -7,7 +8,7 @@ pub fn build(b: *std.Build) void {
 
     const mb = microzig.MicroBuild(.{ .rp2xxx = true }).init(b, b.dependency("microzig", .{})) orelse return;
     const fw = mb.add_firmware(.{
-        .name = "playground",
+        .name = "firmware",
         .root_source_file = b.path("src/main.zig"),
         .target = mb.ports.rp2xxx.boards.raspberrypi.pico,
         .optimize = optimize,
@@ -26,29 +27,15 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "run tests");
     test_step.dependOn(&tests_run.step);
 
-    const printer_mod = b.dependency("printer", .{}).module("printer");
-    const serial_mod = b.dependency("serial", .{}).module("serial");
-
-    const flasher_exe = b.addExecutable(.{
-        .name = "flasher",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("tools/flasher.zig"),
-            .imports = &.{
-                .{ .name = "printer", .module = printer_mod },
-                .{ .name = "serial", .module = serial_mod },
-            },
-            .target = target,
-            .optimize = .ReleaseSafe,
-        }),
+    const zprobe_dep = b.dependency("zprobe", .{
+        .target = b.graph.host,
+        .optimize = .ReleaseSafe,
     });
-
-    const serial_dev_path = b.option([]const u8, "serial_dev", "serial port device path") orelse "/dev/ttyUSB0";
-    const serial_baud_rate = b.option(usize, "serial_baud_rate", "serial port baud rate") orelse 115_200;
-
-    const flasher_run = b.addRunArtifact(flasher_exe);
-    flasher_run.addFileArg(fw.get_emitted_elf());
-    flasher_run.addArgs(&.{ serial_dev_path, b.fmt("{d}", .{serial_baud_rate}) });
-
-    const run_step = b.step("run", "run");
-    run_step.dependOn(&flasher_run.step);
+    const zprobe_load_run = zprobe.load(zprobe_dep, .{
+        .elf_file = fw.get_emitted_elf(),
+        .chip = .RP2040,
+        .rtt = true,
+    });
+    const run_step = b.step("run", "Run firmware");
+    run_step.dependOn(zprobe_load_run);
 }

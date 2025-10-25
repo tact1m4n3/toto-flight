@@ -5,11 +5,7 @@
     .minimum_zig_version = "0.14.1",
     .dependencies = .{
         .microzig = .{ .path = "../../microzig" },
-        .printer = .{ .path = "../../microzig/tools/printer" },
-        .serial = .{
-            .url = "git+https://github.com/ZigEmbeddedGroup/serial#9473fc7a29e4f986d02cf08dfe01b0d22293a306",
-            .hash = "serial-0.0.1-PoeRzD61AACY75Xpwn2iX7r3qWKDoYAMP9-4FME2LjDn",
-        },
+        .zprobe = .{ .path = "../../zprobe" },
     },
     .paths = .{
         "build.zig",
