@@ -1,11 +1,17 @@
 .{
-    .name = .esp32_c3_playground,
+    .name = .toto_flight,
     .version = "0.0.0",
-    .fingerprint = 0x1605c3273b08be5, // Changing this has security and trust implications.
+    .fingerprint = 0x71c315d27802090, // Changing this has security and trust implications.
     .minimum_zig_version = "0.14.1",
     .dependencies = .{
-        .microzig = .{ .path = "../../microzig" },
-        .zprobe = .{ .path = "../../zprobe" },
+        .microzig = .{
+            .url = "git+https://github.com/ZigEmbeddedGroup/microzig#cebe3b1fa5d020134ccac041682b7eb3ebe6263e",
+            .hash = "microzig-0.15.0-D20YSZ5XygACqegH8NWyAdlMPPuu3-N0GI9OVwP9St2o",
+        },
+        .zprobe = .{
+            .url = "git+https://github.com/tact1m4n3/zprobe#14ba8abdb9eee2ccb018ac0da31e305d8a6b4a5f",
+            .hash = "zprobe-0.0.1-SgjOOlXOAgCJbos6LVINTFZKvfwVlKrFUfOPspOfw9N6",
+        },
     },
     .paths = .{
         "build.zig",
