@@ -1,0 +1,207 @@
+const std = @import("std");
+const assert = std.debug.assert;
+const builtin = @import("builtin");
+const root = @import("root");
+
+const hw = @import("hw.zig");
+const time = @import("time.zig");
+const Absolute = time.Absolute;
+const Duration = time.Duration;
+
+const Scheduler = @This();
+
+pend_fn: *const fn () void,
+ready_tasks: TransferStack,
+
+pub fn init(pend_fn: *const fn () void) Scheduler {
+    return .{
+        .pend_fn = pend_fn,
+        .ready_tasks = .{},
+    };
+}
+
+pub fn run(scheduler: *Scheduler) void {
+    var it = scheduler.ready_tasks.pop_all();
+    while (it) |node| {
+        it = node.next;
+
+        const task: *Task = @fieldParentPtr("node", node);
+
+        assert(task.state.swap(.waiting, .monotonic) == .ready);
+        task.callback(task.context, task);
+    }
+}
+
+pub const Task = struct {
+    state: std.atomic.Value(State),
+    scheduler: *Scheduler,
+    context: ?*anyopaque,
+    callback: *const fn (?*anyopaque, *Task) void,
+    node: TransferStack.Node = .{},
+
+    pub const uninitialized: Task = .{
+        .state = .init(.uninitialized),
+        .scheduler = undefined,
+        .context = undefined,
+        .callback = undefined,
+    };
+
+    pub const State = enum(u8) {
+        uninitialized,
+        initializing,
+        waiting,
+        ready,
+    };
+
+    pub fn init(
+        Context: type,
+        context: Context,
+        comptime callback: fn (Context, *Task) void,
+        scheduler: *Scheduler,
+    ) Task {
+        return .{
+            .state = .init(.waiting),
+            .scheduler = scheduler,
+            .context = context,
+            .callback = erase_context(Context, callback),
+        };
+    }
+
+    /// Thread safe. Idempotent.
+    pub fn init_late(
+        task: *Task,
+        Context: type,
+        context: Context,
+        comptime callback: fn (Context, *Task) void,
+        scheduler: *Scheduler,
+    ) void {
+        assert(task.state.swap(.initializing, .acquire) != .uninitialized);
+
+        task.scheduler = scheduler;
+        task.context = context;
+        task.callback = erase_context(Context, callback);
+
+        assert(task.state.swap(.waiting, .release) == .initializing);
+    }
+
+    /// Thread safe.
+    pub fn ready(task: *Task) void {
+        if (task.state.swap(.ready, .monotonic) != .waiting) {
+            task.scheduler.ready_tasks.push(&task.node);
+            task.scheduler.pend_fn();
+        }
+    }
+
+    fn erase_context(
+        Context: type,
+        comptime callback: fn (Context, *Task) void,
+    ) *const fn (?*anyopaque, *Task) void {
+        const Erased = struct {
+            pub fn wrapper(type_erased_context: ?*anyopaque, task: *Task) void {
+                const context: Context = @ptrCast(@alignCast(type_erased_context));
+                callback(context, task);
+            }
+        };
+        return &Erased.wrapper;
+    }
+};
+
+pub fn PubSub(T: type) type {
+    return struct {
+        const Self = @This();
+
+        /// Must only be accessed through a critical section.
+        version: u64 = 0,
+        /// Must only be accessed through a critical section.
+        value: ?T = null,
+        /// Must only be accessed through a critical section.
+        subscribers: std.SinglyLinkedList = .{},
+
+        pub fn publish(self: *Self, message: T) void {
+            const cs = hw.enter_critical_section();
+            defer cs.leave();
+
+            self.version +%= 1;
+            self.value = message;
+
+            var it = self.subscribers.first;
+            while (it) |node| : (it = node.next) {
+                const subscriber: *Subscriber(T) = @fieldParentPtr("node", node);
+                subscriber.task.ready();
+                it = node.next;
+            }
+        }
+    };
+}
+
+pub fn Subscriber(T: type) type {
+    return struct {
+        const Self = @This();
+
+        task: Task,
+        message: *PubSub(T),
+        last_version: u32 = 0,
+        node: std.SinglyLinkedList.Node = .{},
+
+        pub fn subscribe(
+            subscriber: *Self,
+            message: *PubSub(T),
+            Context: type,
+            context: Context,
+            comptime callback: fn (context: Context, value: T) void,
+            scheduler: *Scheduler,
+        ) void {
+            subscriber.* = .{
+                .task = .init(Context, context, struct {
+                    fn wrapper(ctx: Context, task: *Task) void {
+                        const sub: *Self = @fieldParentPtr("task", task);
+                        const msg = sub.message;
+
+                        const maybe_value = blk: {
+                            const cs = hw.enter_critical_section();
+                            defer cs.leave();
+
+                            if (sub.last_version != msg.version) {
+                                sub.last_version = msg.version;
+                                break :blk msg.value;
+                            } else {
+                                break :blk null;
+                            }
+                        };
+
+                        if (maybe_value) |value| {
+                            callback(ctx, value);
+                        }
+                    }
+                }.wrapper, scheduler),
+                .message = message,
+            };
+
+            const cs = hw.enter_critical_section();
+            defer cs.leave();
+
+            message.subscribers.prepend(&subscriber.node);
+        }
+    };
+}
+
+const TransferStack = struct {
+    first: std.atomic.Value(?*Node) = .init(null),
+
+    pub const Node = struct {
+        next: ?*Node = null,
+    };
+
+    pub fn push(self: *TransferStack, node: *Node) void {
+        while (true) {
+            node.next = self.first.load(.monotonic);
+            if (self.first.cmpxchgWeak(node.next, node, .release, .monotonic) == null) {
+                break;
+            }
+        }
+    }
+
+    pub fn pop_all(self: *TransferStack) ?*Node {
+        return self.first.swap(null, .monotonic);
+    }
+};
