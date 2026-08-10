@@ -1,36 +1,37 @@
 const std = @import("std");
-const log = std.log.scoped(.receiver);
 
+const Command = @import("control.zig").Command;
 const hw = @import("hw.zig");
-const Scheduler = @import("Scheduler.zig");
-const PubSub = Scheduler.PubSub;
-const Subscriber = Scheduler.Subscriber;
-const Task = Scheduler.Task;
 const CRSF_Parser = @import("parsers/CRSF.zig");
+const Scheduler = @import("Scheduler.zig");
+const Message = Scheduler.Message;
+const Receiver = Scheduler.Receiver;
+const Task = Scheduler.Task;
+
+const log = std.log.scoped(.receiver);
 
 // TODO: make it generic over parser
 
 pub const Rx = struct {
     uart_rx: hw.UART_RX,
-    msg_channels: *PubSub([16]u16),
+    msg_channels: *Message([16]u16),
     parser: CRSF_Parser = .{},
 
     pub const Resources = struct {
         uart_rx: hw.UART_RX,
-        msg_channels: *PubSub([16]u16),
+        msg_channels: *Message([16]u16),
     };
 
     pub fn init(rx: *Rx, scheduler: *Scheduler, resources: Resources) void {
         rx.* = .{
             .uart_rx = resources.uart_rx,
             .msg_channels = resources.msg_channels,
-            .parser = .{},
         };
 
         rx.uart_rx.subscribe(*Rx, rx, receive_byte, scheduler);
     }
 
-    pub fn receive_byte(rx: *Rx, byte: u8) void {
+    fn receive_byte(rx: *Rx, byte: u8) void {
         const maybe_packet = rx.parser.push_byte(byte) catch |err| {
             log.warn("failed to parse packet: {t}", .{err});
             return;
@@ -54,7 +55,25 @@ pub const Rx = struct {
     }
 };
 
-// pub const ChannelsToCommand = struct {
-//     channels_sub: Subscriber([16]u16),
-//     command_msg: *PubSub(Command),
-// };
+pub const ChannelsToCommand = struct {
+    rcv_channels: Receiver([16]u16) = undefined,
+    msg_command: *Message(Command),
+
+    pub fn init(
+        channels_to_command: *ChannelsToCommand,
+        scheduler: *Scheduler,
+        msg_command: *Message(Command),
+        msg_channels: *Message([16]u16),
+    ) void {
+        channels_to_command.* = .{
+            .msg_command = msg_command,
+        };
+
+        msg_channels.subscribe(&channels_to_command.rcv_channels, ChannelsToCommand, channels_to_command, channels_callback, scheduler);
+    }
+
+    fn channels_callback(channels_to_command: *ChannelsToCommand, channels: [16]u16) void {
+        _ = channels_to_command; // autofix
+        _ = channels; // autofix
+    }
+};

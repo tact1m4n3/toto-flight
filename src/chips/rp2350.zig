@@ -1,19 +1,21 @@
 const std = @import("std");
-const log = std.log.scoped(.chip_rp2350);
+
 const microzig = @import("microzig");
 const rp2xxx = microzig.hal;
+pub const Pin = rp2xxx.gpio.Pin;
 
 const hw = @import("../hw.zig");
+const imu = @import("../imu.zig");
+const receiver = @import("../receiver.zig");
 const Scheduler = @import("../Scheduler.zig");
-const PubSub = Scheduler.PubSub;
+const Message = Scheduler.Message;
 const Task = Scheduler.Task;
 const time = @import("../time.zig");
 const Duration = time.Duration;
 const Absolute = time.Absolute;
 const RingBuffer = @import("../utils/ring_buffer.zig").RingBuffer;
 
-const imu = @import("../imu.zig");
-const receiver = @import("../receiver.zig");
+const log = std.log.scoped(.chip_rp2350);
 
 pub const interrupts: microzig.InterruptOptions = .{
     .IO_IRQ_BANK0 = .{ .c = IO_IRQ_BANK0 },
@@ -22,9 +24,12 @@ pub const interrupts: microzig.InterruptOptions = .{
     .SPAREIRQ_IRQ_0 = .{ .c = SPAREIRQ_IRQ_0 },
     .SPAREIRQ_IRQ_1 = .{ .c = SPAREIRQ_IRQ_1 },
     .SPAREIRQ_IRQ_2 = .{ .c = SPAREIRQ_IRQ_2 },
+    .SPAREIRQ_IRQ_3 = .{ .c = SPAREIRQ_IRQ_3 },
 };
 
-var msg_channels: PubSub([16]u16) = .{};
+var msg_channels: Message([16]u16) = .{};
+var msg_imu_data: Message(imu.Data) = .{};
+var msg_imu_params: Message(imu.Params) = .{};
 
 var task_imu: imu.Imu = undefined;
 var task_rx: receiver.Rx = undefined;
@@ -37,8 +42,14 @@ pub fn main() noreturn {
 
     InterruptPin.apply_all();
     UART.apply_all();
+    SPI.apply_all();
 
-    task_imu.init(&scheduler_realtime_priority, .imu, .imu);
+    task_imu.init(&scheduler_realtime_priority, .{
+        .spi = .imu,
+        .interrupt_pin = .imu,
+        .msg_data = &msg_imu_data,
+        .msg_params = &msg_imu_params,
+    });
 
     task_rx.init(&scheduler_high_priority, .{
         .uart_rx = .{ .inner = .receiver },
@@ -151,8 +162,6 @@ fn SPAREIRQ_IRQ_3() callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_3);
     scheduler_low_priority.run();
 }
-
-pub const Pin = rp2xxx.gpio.Pin;
 
 pub const InterruptPin = enum(u6) {
     imu = @intFromEnum(hw.def.imu.pin_interrupt),
@@ -317,18 +326,6 @@ pub fn UART_State(cfg: UART_Config) type {
                     }
                 },
             }
-
-            // const rx_target = cfg.instance.rx();
-            // cfg.dma_rx.setup_transfer_raw(@intFromPtr(&state.rx_ring_buf), rx_target.addr, null, .{
-            //     .enable = true,
-            //     .trigger = true,
-            //     .data_size = .size_8,
-            //     .read_increment = false,
-            //     .write_increment = true,
-            //     .dreq = rx_target.dreq,
-            //     .ring_size = .@"2^8",
-            //     .ring_apply_to = .read,
-            // });
         }
 
         /// Thread safe. Idempotent.
@@ -429,7 +426,7 @@ pub const SPI = enum {
 
     fn apply_all() void {
         inline for (std.enums.values(SPI)) |spi| {
-            const cfg = spi.get_config();
+            const cfg = comptime spi.get_config();
 
             cfg.pin_cs.set_function(.sio);
             cfg.pin_cs.set_direction(.out);

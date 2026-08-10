@@ -106,7 +106,7 @@ pub const Task = struct {
     }
 };
 
-pub fn PubSub(T: type) type {
+pub fn Message(T: type) type {
     return struct {
         const Self = @This();
 
@@ -115,46 +115,35 @@ pub fn PubSub(T: type) type {
         /// Must only be accessed through a critical section.
         value: ?T = null,
         /// Must only be accessed through a critical section.
-        subscribers: std.SinglyLinkedList = .{},
+        receivers: std.SinglyLinkedList = .{},
 
-        pub fn publish(self: *Self, message: T) void {
+        pub fn publish(self: *Self, value: T) void {
             const cs = hw.enter_critical_section();
             defer cs.leave();
 
             self.version +%= 1;
-            self.value = message;
+            self.value = value;
 
-            var it = self.subscribers.first;
+            var it = self.receivers.first;
             while (it) |node| : (it = node.next) {
-                const subscriber: *Subscriber(T) = @fieldParentPtr("node", node);
+                const subscriber: *Receiver(T) = @alignCast(@fieldParentPtr("node", node));
                 subscriber.task.ready();
                 it = node.next;
             }
         }
-    };
-}
-
-pub fn Subscriber(T: type) type {
-    return struct {
-        const Self = @This();
-
-        task: Task,
-        message: *PubSub(T),
-        last_version: u32 = 0,
-        node: std.SinglyLinkedList.Node = .{},
 
         pub fn subscribe(
-            subscriber: *Self,
-            message: *PubSub(T),
+            self: *Self,
+            receiver: *Receiver(T),
             Context: type,
             context: Context,
             comptime callback: fn (context: Context, value: T) void,
             scheduler: *Scheduler,
         ) void {
-            subscriber.* = .{
+            receiver.* = .{
                 .task = .init(Context, context, struct {
                     fn wrapper(ctx: Context, task: *Task) void {
-                        const sub: *Self = @fieldParentPtr("task", task);
+                        const sub: *Receiver(T) = @alignCast(@fieldParentPtr("task", task));
                         const msg = sub.message;
 
                         const maybe_value = blk: {
@@ -174,14 +163,25 @@ pub fn Subscriber(T: type) type {
                         }
                     }
                 }.wrapper, scheduler),
-                .message = message,
+                .message = self,
             };
 
             const cs = hw.enter_critical_section();
             defer cs.leave();
 
-            message.subscribers.prepend(&subscriber.node);
+            self.receivers.prepend(&receiver.node);
         }
+    };
+}
+
+pub fn Receiver(T: type) type {
+    return struct {
+        const Self = @This();
+
+        task: Task,
+        message: *Message(T),
+        last_version: u64 = 0,
+        node: std.SinglyLinkedList.Node = .{},
     };
 }
 
