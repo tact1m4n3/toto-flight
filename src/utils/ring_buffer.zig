@@ -36,3 +36,23 @@ pub fn RingBuffer(T: type, capacity: usize) type {
         }
     };
 }
+
+const testing = std.testing;
+
+test "push/pop preserves FIFO order" {
+    var rb = RingBuffer(u32, 4){};
+    try rb.push(1);
+    try rb.push(2);
+    try testing.expectEqual(@as(?u32, 1), rb.pop());
+    try testing.expectEqual(@as(?u32, 2), rb.pop());
+    try testing.expectEqual(@as(?u32, null), rb.pop());
+}
+
+test "buffer full/empty boundaries" {
+    var rb = RingBuffer(u32, 2){};
+    try rb.push(1);
+    try rb.push(2);
+    try testing.expectError(error.BufferFull, rb.push(3));
+    _ = rb.pop();
+    try rb.push(3); // room again after a pop
+}

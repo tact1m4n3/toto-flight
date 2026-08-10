@@ -86,7 +86,7 @@ pub const Task = struct {
 
     /// Thread safe.
     pub fn ready(task: *Task) void {
-        if (task.state.swap(.ready, .monotonic) != .waiting) {
+        if (task.state.swap(.ready, .monotonic) != .ready) {
             task.scheduler.ready_tasks.push(&task.node);
             task.scheduler.pend_fn();
         }
@@ -205,3 +205,44 @@ const TransferStack = struct {
         return self.first.swap(null, .monotonic);
     }
 };
+
+const testing = std.testing;
+
+test "TransferStack" {
+    var stack: TransferStack = .{};
+    var n1: TransferStack.Node = .{};
+    var n2: TransferStack.Node = .{};
+
+    stack.push(&n1);
+    stack.push(&n2);
+
+    const head = stack.pop_all();
+    try testing.expectEqual(@as(?*TransferStack.Node, &n2), head);
+    try testing.expectEqual(@as(?*TransferStack.Node, &n1), n2.next);
+    try testing.expectEqual(@as(?*TransferStack.Node, null), stack.pop_all());
+}
+
+test "Scheduler" {
+    const Pend = struct {
+        var called: bool = false;
+        fn pend() void {
+            called = true;
+        }
+    };
+    var scheduler = Scheduler.init(Pend.pend);
+
+    var ran = false;
+    var task = Task.init(*bool, &ran, struct {
+        fn cb(ctx: *bool, _: *Task) void {
+            ctx.* = true;
+        }
+    }.cb, &scheduler);
+
+    task.ready();
+    try testing.expect(Pend.called);
+    try testing.expect(!ran); // queued, not yet run
+
+    scheduler.run();
+    try testing.expect(ran);
+    try testing.expectEqual(Task.State.waiting, task.state.load(.monotonic));
+}

@@ -30,14 +30,17 @@ var task_imu: imu.Imu = undefined;
 var task_rx: receiver.Rx = undefined;
 
 pub fn main() noreturn {
+    RTT.init();
+    rtt_logger = RTT.writer(0, &rtt_writer_buf);
+
     schedulers_init();
 
     InterruptPin.apply_all();
     UART.apply_all();
 
-    task_imu.init(.imu);
+    task_imu.init(&scheduler_realtime_priority, .imu, .imu);
 
-    task_rx.init(&scheduler_mid_priority, .{
+    task_rx.init(&scheduler_high_priority, .{
         .uart_rx = .{ .inner = .receiver },
         .msg_channels = &msg_channels,
     });
@@ -46,6 +49,30 @@ pub fn main() noreturn {
 
     while (true) {
         microzig.cpu.wfi();
+    }
+}
+
+const RTT = microzig.cpu.rtt.RTT(.{});
+var rtt_logger: ?RTT.Writer = null;
+var rtt_writer_buf: [128]u8 = undefined;
+
+pub fn log_fn(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.enum_literal),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const level_prefix = comptime "[{}.{:0>6}] " ++ level.asText();
+    const prefix = comptime level_prefix ++ switch (scope) {
+        .default => ": ",
+        else => " (" ++ @tagName(scope) ++ "): ",
+    };
+    if (rtt_logger) |*writer| {
+        const current_time = hw.get_time_since_boot();
+        const seconds = current_time.to_us() / std.time.us_per_s;
+        const microseconds = current_time.to_us() % std.time.us_per_s;
+        writer.interface.print(prefix ++ format ++ "\r\n", .{ seconds, microseconds } ++ args) catch {};
+        writer.interface.flush() catch {};
     }
 }
 
@@ -69,20 +96,24 @@ pub fn get_time_since_boot() Absolute {
     return .from_us(rp2xxx.time.get_time_since_boot().to_us());
 }
 
+const scheduler_priority_realtime: microzig.cpu.interrupt.Priority = @enumFromInt(0);
 const scheduler_priority_high: microzig.cpu.interrupt.Priority = @enumFromInt(1);
 const scheduler_priority_mid: microzig.cpu.interrupt.Priority = @enumFromInt(2);
 const scheduler_priority_low: microzig.cpu.interrupt.Priority = @enumFromInt(3);
 
-var scheduler_high_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_0));
-var scheduler_mid_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_1));
-var scheduler_low_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_2));
+var scheduler_realtime_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_0));
+var scheduler_high_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_1));
+var scheduler_mid_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_2));
+var scheduler_low_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_3));
 
 fn schedulers_init() void {
     inline for (&.{
         .SPAREIRQ_IRQ_0,
         .SPAREIRQ_IRQ_1,
         .SPAREIRQ_IRQ_2,
+        .SPAREIRQ_IRQ_3,
     }, &.{
+        scheduler_priority_realtime,
         scheduler_priority_high,
         scheduler_priority_mid,
         scheduler_priority_low,
@@ -103,18 +134,25 @@ fn scheduler_pend_fn(comptime interrupt: microzig.cpu.ExternalInterrupt) fn () v
 
 fn SPAREIRQ_IRQ_0() callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_0);
-    scheduler_high_priority.run();
+    scheduler_realtime_priority.run();
 }
 
 fn SPAREIRQ_IRQ_1() callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_1);
-    scheduler_mid_priority.run();
+    scheduler_high_priority.run();
 }
 
 fn SPAREIRQ_IRQ_2() callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_2);
+    scheduler_mid_priority.run();
+}
+
+fn SPAREIRQ_IRQ_3() callconv(.c) void {
+    microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_3);
     scheduler_low_priority.run();
 }
+
+pub const Pin = rp2xxx.gpio.Pin;
 
 pub const InterruptPin = enum(u6) {
     imu = @intFromEnum(hw.def.imu.pin_interrupt),
@@ -143,7 +181,7 @@ pub const InterruptPin = enum(u6) {
             pub fn wrapper(ctx: Context, _: *Task) void {
                 callback(ctx);
             }
-        }, scheduler);
+        }.wrapper, scheduler);
     }
 };
 
@@ -159,6 +197,23 @@ fn IO_IRQ_BANK0() linksection(".ram_text") callconv(.c) void {
         }
     }
 }
+
+pub const UART_Config = struct {
+    instance: Instance,
+    baud_rate: u32,
+    pin_tx: Pin,
+    pin_rx: Pin,
+    buf_size_tx: usize,
+    buf_size_rx: usize,
+
+    pub const Instance = union(enum) {
+        uart: rp2xxx.uart.UART,
+        // pio: struct {
+        //     pio: rp2xxx.pio.Pio,
+        //     sm: rp2xxx.pio.Pio,
+        // },
+    };
+};
 
 pub const UART = enum {
     receiver,
@@ -349,24 +404,17 @@ pub const UART1_IRQ: ?microzig.interrupt.Handler = if (UART.from_instance(.{ .ua
 else
     null;
 
-pub const Pin = rp2xxx.gpio.Pin;
+pub const clock: Clock = .{};
+pub const Clock = struct {
+    pub fn sleep_ms(_: Clock, ms: u32) void {
+        rp2xxx.time.sleep_ms(ms);
+    }
 
-pub const UART_Config = struct {
-    instance: Instance,
-    baud_rate: u32,
-    pin_tx: Pin,
-    pin_rx: Pin,
-    buf_size_tx: usize,
-    buf_size_rx: usize,
-
-    pub const Instance = union(enum) {
-        uart: rp2xxx.uart.UART,
-        // pio: struct {
-        //     pio: rp2xxx.pio.Pio,
-        //     sm: rp2xxx.pio.Pio,
-        // },
-    };
+    pub fn sleep_us(_: Clock, us: u64) void {
+        rp2xxx.time.sleep_us(us);
+    }
 };
+
 pub const SPI_Config = struct {
     instance: rp2xxx.spi.SPI,
     baud_rate: u32,
@@ -374,27 +422,6 @@ pub const SPI_Config = struct {
     pin_mosi: Pin,
     pin_miso: Pin,
     pin_cs: Pin,
-};
-pub const I2C_Config = struct {
-    instance: rp2xxx.i2c.I2C,
-    baud_rate: u32,
-    pin_sda: Pin,
-    pin_scl: Pin,
-};
-pub const PWM_Config = struct {
-    pwm_slice: rp2xxx.pwm.Slice,
-    pin_a: ?Pin = null,
-    pin_b: ?Pin = null,
-};
-
-pub const Clock = struct {
-    pub fn sleep_ms(_: *Clock, ms: u32) void {
-        rp2xxx.time.sleep(.from_ms(ms));
-    }
-
-    pub fn sleep_us(_: *Clock, us: u64) void {
-        rp2xxx.time.sleep(.from_us(us));
-    }
 };
 
 pub const SPI = enum {
@@ -431,14 +458,26 @@ pub const SPI = enum {
                 cfg.pin_cs.put(0);
                 defer cfg.pin_cs.put(1);
 
-                try cfg.instance.transceive_blocking(buf);
+                cfg.instance.transceive_blocking(u8, buf, buf);
             },
         }
     }
 
     fn get_config(comptime spi: SPI) SPI_Config {
-        switch (spi) {
+        return switch (spi) {
             .imu => hw.def.imu.spi,
-        }
+        };
     }
+};
+
+pub const I2C_Config = struct {
+    instance: rp2xxx.i2c.I2C,
+    baud_rate: u32,
+    pin_sda: Pin,
+    pin_scl: Pin,
+};
+pub const PWM_Config = struct {
+    pwm_slice: rp2xxx.pwm.Slice,
+    pin_a: ?Pin = null,
+    pin_b: ?Pin = null,
 };

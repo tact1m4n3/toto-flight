@@ -19,11 +19,14 @@ pub const Imu = struct {
     driver: Driver,
 
     pub fn init(imu: *Imu, scheduler: *Scheduler, spi: hw.SPI, interrupt_pin: hw.InterruptPin) void {
-        if (hw.def.imu.tick_period != time.Duration.from_hz(1000))
+        if (comptime hw.def.imu.tick_period != time.Duration.from_hz(1000))
             @compileError("imu tick period must be 1kHz for now");
-        const driver: Driver = .init(spi, hw.ClockDevice, .{}) catch |err| {
-            std.log.err("failed to init: {t}", .{err});
-            return;
+
+        const driver = switch (hw.def.imu.type) {
+            .lsm6dsv => Driver.init(spi, hw.clock, .{}) catch |err| {
+                log.err("failed to init: {t}", .{err});
+                return;
+            },
         };
         imu.* = .{ .driver = driver };
 
@@ -31,9 +34,11 @@ pub const Imu = struct {
     }
 
     fn tick(imu: *Imu) void {
+        const timestamp = hw.get_time_since_boot();
         const raw_data = imu.driver.read() catch |err| {
-            std.log.err("failed to read: {t}", .{err});
+            log.err("failed to read: {t}", .{err});
         };
+        _ = timestamp;
         _ = raw_data;
     }
 };

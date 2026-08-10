@@ -43,7 +43,7 @@ pub const Rx = struct {
                     for (&channels, &raw_channels) |*channel, raw_channel| {
                         channel.* = raw_channel;
                     }
-                    log.info("received channels: {}", .{channels});
+                    log.info("received channels: {any}", .{channels});
                     rx.msg_channels.publish(channels);
                 },
                 .link_statistics => |ls| {
@@ -54,7 +54,7 @@ pub const Rx = struct {
     }
 };
 
-pub const ChannelsToCommand = struct {
-    channels_sub: Subscriber([16]u16),
-    command_msg: *PubSub(Command),
-};
+// pub const ChannelsToCommand = struct {
+//     channels_sub: Subscriber([16]u16),
+//     command_msg: *PubSub(Command),
+// };

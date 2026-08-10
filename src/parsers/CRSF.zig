@@ -193,7 +193,7 @@ fn test_parse_packet(expected: Packet, data: []const u8) !void {
 
     try std.testing.expectEqual(
         expected,
-        parser.push_byte(std.hash.crc.Crc8DvbS2.hash(data[2..])),
+        parser.push_byte(std.hash.crc.@"CRC-8/DVB-S2".hash(data[2..])),
     );
 }
 
@@ -209,7 +209,7 @@ test "rc_channels_packed" {
         0x00, 0x00, 0x00,
         0x00,
     };
-    try test_parse_packet(Packet{ .rc_channels_packed = @splat(.{ .value = 0 }) }, data);
+    try test_parse_packet(Packet{ .rc_channels_packed = @splat(0) }, data);
 }
 
 test "link_statistics" {
