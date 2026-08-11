@@ -8,6 +8,10 @@
             .path = "../microzig",
             .lazy = true,
         },
+        .jsbsim = .{
+            .path = "vendor/jsbsim",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",

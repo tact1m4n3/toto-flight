@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<direct name="direct_prop">
+ <!-- Converts engine power straight to thrust without full propeller
+      blade-element modeling; adequate for a simple RC sim.
+      Effective disc area for an approximately 9 to 10 inch RC prop. -->
+ <area unit="FT2"> 0.44 </area>
+</direct>

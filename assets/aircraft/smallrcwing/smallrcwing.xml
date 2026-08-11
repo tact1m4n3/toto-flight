@@ -1,0 +1,413 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="http://jsbsim.sourceforge.net/JSBSim.xsl"?>
+<fdm_config name="SmallRCWing" version="2.0" release="ALPHA"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:noNamespaceSchemaLocation="http://jsbsim.sourceforge.net/JSBSim.xsd">
+
+ <fileheader>
+  <author>Generated example</author>
+  <filecreationdate>2026-08-10</filecreationdate>
+  <version>1.0</version>
+  <description>
+   Small foam RC flying wing, ~1.2 m span, electric direct-drive pusher/puller
+   prop, elevon pitch/roll control, no rudder, no tail. Coefficients are
+   representative estimates for a Zagi-class flying wing -- refine with
+   AVL/XFLR5 or flight-test data for anything beyond qualitative sim use.
+  </description>
+ </fileheader>
+
+ <!-- ============================== METRICS ============================== -->
+ <metrics>
+  <wingarea unit="FT2"> 3.30 </wingarea>
+  <wingspan unit="FT">  4.00 </wingspan>
+  <chord unit="FT">     0.83 </chord>
+  <wing_incidence unit="DEG"> 0.0 </wing_incidence>
+  <htailarea unit="FT2"> 0.0 </htailarea>
+  <htailarm unit="FT">   0.0 </htailarm>
+  <vtailarea unit="FT2"> 0.0 </vtailarea>
+  <vtailarm unit="FT">   0.0 </vtailarm>
+  <location name="AERORP" unit="IN">
+   <x> 3.5 </x>
+   <y> 0.0 </y>
+   <z> 0.0 </z>
+  </location>
+  <location name="EYEPOINT" unit="IN">
+   <x> 2.0 </x>
+   <y> 0.0 </y>
+   <z> 1.0 </z>
+  </location>
+  <location name="VRP" unit="IN">
+   <x> 0.0 </x>
+   <y> 0.0 </y>
+   <z> 0.0 </z>
+  </location>
+ </metrics>
+
+ <!-- ============================ MASS / INERTIA ========================== -->
+ <mass_balance>
+  <ixx unit="SLUG*FT2"> 0.050 </ixx>
+  <iyy unit="SLUG*FT2"> 0.100 </iyy>
+  <izz unit="SLUG*FT2"> 0.145 </izz>
+  <ixy unit="SLUG*FT2"> 0.0 </ixy>
+  <ixz unit="SLUG*FT2"> 0.0 </ixz>
+  <iyz unit="SLUG*FT2"> 0.0 </iyz>
+  <emptywt unit="LBS"> 1.10 </emptywt>
+  <location name="CG" unit="IN">
+   <x> 3.5 </x>
+   <y> 0.0 </y>
+   <z> 0.0 </z>
+  </location>
+  <pointmass name="Battery">
+   <weight unit="LBS"> 0.28 </weight>
+   <location unit="IN">
+    <x> 2.5 </x>
+    <y> 0.0 </y>
+    <z> 0.0 </z>
+   </location>
+  </pointmass>
+ </mass_balance>
+
+ <!-- ========================== GROUND REACTIONS ========================== -->
+ <ground_reactions>
+  <contact type="BOGEY" name="SKID_NOSE">
+   <location unit="IN">
+    <x> 0.0 </x>
+    <y> 0.0 </y>
+    <z> -1.0 </z>
+   </location>
+   <static_friction>  0.6 </static_friction>
+   <dynamic_friction> 0.4 </dynamic_friction>
+   <spring_coeff unit="LBS/FT">     20 </spring_coeff>
+   <damping_coeff unit="LBS/FT/SEC"> 2 </damping_coeff>
+   <max_steer unit="DEG"> 0.0 </max_steer>
+   <brake_group> NONE </brake_group>
+   <retractable>0</retractable>
+  </contact>
+  <contact type="BOGEY" name="SKID_LEFT">
+   <location unit="IN">
+    <x> 4.0 </x>
+    <y> -18.0 </y>
+    <z> -0.7 </z>
+   </location>
+   <static_friction>  0.6 </static_friction>
+   <dynamic_friction> 0.4 </dynamic_friction>
+   <spring_coeff unit="LBS/FT">     15 </spring_coeff>
+   <damping_coeff unit="LBS/FT/SEC"> 1.5 </damping_coeff>
+   <max_steer unit="DEG"> 0.0 </max_steer>
+   <brake_group> NONE </brake_group>
+   <retractable>0</retractable>
+  </contact>
+  <contact type="BOGEY" name="SKID_RIGHT">
+   <location unit="IN">
+    <x> 4.0 </x>
+    <y> 18.0 </y>
+    <z> -0.7 </z>
+   </location>
+   <static_friction>  0.6 </static_friction>
+   <dynamic_friction> 0.4 </dynamic_friction>
+   <spring_coeff unit="LBS/FT">     15 </spring_coeff>
+   <damping_coeff unit="LBS/FT/SEC"> 1.5 </damping_coeff>
+   <max_steer unit="DEG"> 0.0 </max_steer>
+   <brake_group> NONE </brake_group>
+   <retractable>0</retractable>
+  </contact>
+ </ground_reactions>
+
+ <!-- ============================= PROPULSION ============================= -->
+ <propulsion>
+  <engine file="elec_motor">
+   <location unit="IN">
+    <x> 0.0 </x>
+    <y> 0.0 </y>
+    <z> 0.0 </z>
+   </location>
+   <orient unit="DEG">
+    <roll>  0.0 </roll>
+    <pitch> 0.0 </pitch>
+    <yaw>   0.0 </yaw>
+   </orient>
+   <feed>0</feed>
+   <thruster file="direct_prop">
+    <location unit="IN">
+     <x> -1.0 </x>
+     <y> 0.0 </y>
+     <z> 0.0 </z>
+    </location>
+    <orient unit="DEG">
+     <roll>  0.0 </roll>
+     <pitch> 0.0 </pitch>
+     <yaw>   0.0 </yaw>
+    </orient>
+   </thruster>
+  </engine>
+  <tank type="FUEL" number="0">
+   <!-- Dummy tank required by JSBSim's fuel-feed bookkeeping even for
+        electric propulsion; capacity is nominal and never depletes here. -->
+   <location unit="IN">
+    <x> 2.5 </x>
+    <y> 0.0 </y>
+    <z> 0.0 </z>
+   </location>
+   <capacity unit="LBS"> 1.0 </capacity>
+   <contents unit="LBS"> 1.0 </contents>
+  </tank>
+ </propulsion>
+
+ <!-- =========================== FLIGHT CONTROLS ========================== -->
+ <flight_control name="FCS: SmallRCWing">
+
+  <channel name="Pitch">
+   <summer name="Pitch Trim Sum">
+    <input>fcs/elevator-cmd-norm</input>
+    <input>fcs/pitch-trim-cmd-norm</input>
+    <clipto>
+     <min>-1</min>
+     <max>1</max>
+    </clipto>
+   </summer>
+  </channel>
+
+  <channel name="Roll">
+   <summer name="Roll Trim Sum">
+    <input>fcs/aileron-cmd-norm</input>
+    <input>fcs/roll-trim-cmd-norm</input>
+    <clipto>
+     <min>-1</min>
+     <max>1</max>
+    </clipto>
+   </summer>
+  </channel>
+
+  <!-- Elevon mixing: each elevon = pitch +/- roll, scaled to a max
+       throw of 20 deg -->
+  <channel name="Elevon Mixer">
+   <summer name="Left Elevon Mix">
+    <input>fcs/pitch-trim-sum</input>
+    <input>fcs/roll-trim-sum</input>
+    <clipto>
+     <min>-1</min>
+     <max>1</max>
+    </clipto>
+   </summer>
+   <aerosurface_scale name="Left Elevon Position">
+    <input>fcs/left-elevon-mix</input>
+    <range>
+     <min>-20</min>
+     <max>20</max>
+    </range>
+    <output>fcs/left-elevon-pos-deg</output>
+   </aerosurface_scale>
+
+   <summer name="Right Elevon Mix">
+    <input>fcs/pitch-trim-sum</input>
+    <input>-fcs/roll-trim-sum</input>
+    <clipto>
+     <min>-1</min>
+     <max>1</max>
+    </clipto>
+   </summer>
+   <aerosurface_scale name="Right Elevon Position">
+    <input>fcs/right-elevon-mix</input>
+    <range>
+     <min>-20</min>
+     <max>20</max>
+    </range>
+    <output>fcs/right-elevon-pos-deg</output>
+   </aerosurface_scale>
+  </channel>
+
+ </flight_control>
+
+ <!-- ============================ AERODYNAMICS ============================ -->
+ <aerodynamics>
+
+  <axis name="LIFT">
+   <function name="aero/coefficient/CLalpha">
+    <description>Lift due to angle of attack</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <table>
+      <independentVar lookup="row">aero/alpha-rad</independentVar>
+      <tableData>
+       -0.20   -1.00
+        0.00    0.25
+        0.10    0.85
+        0.20    1.35
+        0.28    1.55
+        0.32    1.20
+        0.40    0.90
+      </tableData>
+     </table>
+    </product>
+   </function>
+   <function name="aero/coefficient/CLde">
+    <description>Lift due to elevon deflection</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <value>0.006</value>
+     <sum>
+      <property>fcs/left-elevon-pos-deg</property>
+      <property>fcs/right-elevon-pos-deg</property>
+     </sum>
+    </product>
+   </function>
+  </axis>
+
+  <axis name="DRAG">
+   <function name="aero/coefficient/CD0">
+    <description>Drag at zero lift (parasite + induced base)</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <table>
+      <independentVar lookup="row">aero/alpha-rad</independentVar>
+      <tableData>
+       -0.20   0.060
+        0.00   0.025
+        0.10   0.032
+        0.20   0.060
+        0.30   0.110
+        0.40   0.180
+      </tableData>
+     </table>
+    </product>
+   </function>
+  </axis>
+
+  <axis name="SIDE">
+   <function name="aero/coefficient/CYb">
+    <description>Side force due to sideslip</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <value>-0.30</value>
+     <property>aero/beta-rad</property>
+    </product>
+   </function>
+  </axis>
+
+  <axis name="ROLL">
+   <function name="aero/coefficient/Clb">
+    <description>Roll moment due to sideslip (dihedral effect)</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/bw-ft</property>
+     <value>-0.055</value>
+     <property>aero/beta-rad</property>
+    </product>
+   </function>
+   <function name="aero/coefficient/Clp">
+    <description>Roll damping</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/bw-ft</property>
+     <property>aero/bi2vel</property>
+     <value>-0.40</value>
+     <property>velocities/p-aero-rad_sec</property>
+    </product>
+   </function>
+   <function name="aero/coefficient/Clda">
+    <description>Roll moment due to differential elevon (aileron)</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/bw-ft</property>
+     <value>0.0022</value>
+     <difference>
+      <property>fcs/left-elevon-pos-deg</property>
+      <property>fcs/right-elevon-pos-deg</property>
+     </difference>
+    </product>
+   </function>
+  </axis>
+
+  <axis name="PITCH">
+   <function name="aero/coefficient/Cmalpha">
+    <description>Pitch moment due to angle of attack (static stability)</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/cbarw-ft</property>
+     <value>-0.55</value>
+     <property>aero/alpha-rad</property>
+    </product>
+   </function>
+   <function name="aero/coefficient/Cmq">
+    <description>Pitch damping</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/cbarw-ft</property>
+     <property>aero/ci2vel</property>
+     <value>-6.0</value>
+     <property>velocities/q-aero-rad_sec</property>
+    </product>
+   </function>
+   <function name="aero/coefficient/Cmde">
+    <description>Pitch moment due to elevon (elevator) deflection</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/cbarw-ft</property>
+     <value>-0.012</value>
+     <sum>
+      <property>fcs/left-elevon-pos-deg</property>
+      <property>fcs/right-elevon-pos-deg</property>
+     </sum>
+    </product>
+   </function>
+   <function name="aero/coefficient/Cm0">
+    <description>Zero-alpha pitching moment (reflexed airfoil for wing trim)</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/cbarw-ft</property>
+     <value>0.03</value>
+    </product>
+   </function>
+  </axis>
+
+  <axis name="YAW">
+   <function name="aero/coefficient/Cnb">
+    <description>Yaw moment due to sideslip (weathercock)</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/bw-ft</property>
+     <value>0.020</value>
+     <property>aero/beta-rad</property>
+    </product>
+   </function>
+   <function name="aero/coefficient/Cnr">
+    <description>Yaw damping</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/bw-ft</property>
+     <property>aero/bi2vel</property>
+     <value>-0.06</value>
+     <property>velocities/r-aero-rad_sec</property>
+    </product>
+   </function>
+   <function name="aero/coefficient/Cnda">
+    <description>Adverse yaw due to differential elevon</description>
+    <product>
+     <property>aero/qbar-psf</property>
+     <property>metrics/Sw-sqft</property>
+     <property>metrics/bw-ft</property>
+     <value>-0.0006</value>
+     <difference>
+      <property>fcs/left-elevon-pos-deg</property>
+      <property>fcs/right-elevon-pos-deg</property>
+     </difference>
+    </product>
+   </function>
+  </axis>
+
+ </aerodynamics>
+
+</fdm_config>

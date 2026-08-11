@@ -1,0 +1,16 @@
+.{
+    .name = .jsbsim,
+    .version = "0.0.1",
+    .minimum_zig_version = "0.17.0-dev.1158+1d1193aa7",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+    },
+    .fingerprint = 0xe67b330aeb98e45c,
+    .dependencies = .{
+        .jsbsim = .{
+            .url = "git+https://github.com/JSBSim-Team/jsbsim#9a0b0282a3414409123f783e8b766ff002bb5fc9",
+            .hash = "N-V-__8AAB4k0AKaTmjIUJ4nAIEaDDHA0Pu28iijhuk746Ro",
+        },
+    },
+}

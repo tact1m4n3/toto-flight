@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<electric_engine name="elec_motor">
+ <!-- Small brushless outrunner, e.g. ~250-300W class, on a 3S LiPo -->
+ <power unit="WATTS"> 250 </power>
+</electric_engine>
