@@ -110,6 +110,8 @@ pub fn Message(T: type) type {
     return struct {
         const Self = @This();
 
+        pub const Value = T;
+
         /// Must only be accessed through a critical section.
         version: u64 = 0,
         /// Must only be accessed through a critical section.

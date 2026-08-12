@@ -27,10 +27,6 @@ pub const interrupts: microzig.InterruptOptions = .{
     .SPAREIRQ_IRQ_3 = .{ .c = SPAREIRQ_IRQ_3 },
 };
 
-var msg_channels: Message([16]u16) = .{};
-var msg_imu_data: Message(imu.Data) = .{};
-var msg_imu_params: Message(imu.Params) = .{};
-
 var task_imu: imu.Imu = undefined;
 var task_rx: receiver.Rx = undefined;
 
@@ -44,17 +40,8 @@ pub fn main() noreturn {
     UART.apply_all();
     SPI.apply_all();
 
-    task_imu.init(&scheduler_realtime_priority, .{
-        .spi = .imu,
-        .interrupt_pin = .imu,
-        .msg_data = &msg_imu_data,
-        .msg_params = &msg_imu_params,
-    });
-
-    task_rx.init(&scheduler_high_priority, .{
-        .uart_rx = .{ .inner = .receiver },
-        .msg_channels = &msg_channels,
-    });
+    task_imu.init(&scheduler_realtime_priority);
+    task_rx.init(&scheduler_high_priority);
 
     microzig.cpu.interrupt.enable_interrupts();
 
@@ -264,6 +251,8 @@ pub const UART_TX = struct {
 
 pub const UART_RX = struct {
     inner: UART,
+
+    pub const receiver: UART_RX = .{ .inner = .receiver };
 
     /// Thread safe. Idempotent.
     pub fn subscribe(

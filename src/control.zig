@@ -1,4 +1,5 @@
 const imu = @import("imu.zig");
+const receiver = @import("receiver.zig");
 const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
@@ -27,13 +28,24 @@ pub const RateController = struct {
     pub fn init(
         rate_controller: *RateController,
         scheduler: *Scheduler,
-        msg_imu_data: *Message(imu.Data),
-        msg_command: *Message(Command),
     ) void {
         rate_controller.* = .{};
 
-        msg_imu_data.subscribe(&rate_controller.rcv_imu_data, RateController, rate_controller, imu_data_callback, scheduler);
-        msg_command.subscribe(&rate_controller.rcv_command, RateController, rate_controller, command_callback, scheduler);
+        imu.msg_data.subscribe(
+            &rate_controller.rcv_imu_data,
+            *RateController,
+            rate_controller,
+            imu_data_callback,
+            scheduler,
+        );
+
+        receiver.msg_command.subscribe(
+            &rate_controller.rcv_command,
+            *RateController,
+            rate_controller,
+            rx_command_callback,
+            scheduler,
+        );
     }
 
     fn imu_data_callback(rate_controller: *RateController, data: imu.Data) void {
@@ -41,7 +53,7 @@ pub const RateController = struct {
         _ = data; // autofix
     }
 
-    fn command_callback(rate_controller: *RateController, command: Command) void {
+    fn rx_command_callback(rate_controller: *RateController, command: Command) void {
         _ = rate_controller; // autofix
         _ = command; // autofix
     }
