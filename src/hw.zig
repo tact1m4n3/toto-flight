@@ -22,6 +22,7 @@ pub const CriticalSection = chip.CriticalSection;
 
 pub const get_time_since_boot = chip.get_time_since_boot;
 pub const clock = chip.clock;
+pub const flash = chip.flash;
 
 pub const Pin = chip.Pin;
 pub const InterruptPin = chip.InterruptPin;

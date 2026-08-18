@@ -119,6 +119,19 @@ pub fn Message(T: type) type {
         /// Must only be accessed through a critical section.
         receivers: std.SinglyLinkedList = .{},
 
+        pub fn get(self: *Self) struct {
+            version: u64,
+            value: ?T,
+        } {
+            const cs = hw.enter_critical_section();
+            defer cs.leave();
+
+            return .{
+                .version = self.version,
+                .value = self.value,
+            };
+        }
+
         pub fn publish(self: *Self, value: T) void {
             const cs = hw.enter_critical_section();
             defer cs.leave();

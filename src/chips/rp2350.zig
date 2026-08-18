@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 const microzig = @import("microzig");
 const rp2xxx = microzig.hal;
@@ -398,6 +399,52 @@ pub const Clock = struct {
 
     pub fn sleep_us(_: Clock, us: u64) void {
         rp2xxx.time.sleep_us(us);
+    }
+};
+
+pub const flash = struct {
+    const BASE: usize = 16 * 1024 * 1024 - SIZE;
+    pub const SIZE: usize = 64 * 1024;
+
+    comptime {
+        assert(std.mem.isAligned(SIZE, ERASE_SIZE));
+    }
+
+    pub const WRITE_SIZE: usize = 1;
+    pub const ERASE_SIZE: usize = rp2xxx.flash.SECTOR_SIZE;
+
+    pub fn erase(offset: u32, size: u32) !void {
+        const cs = enter_critical_section();
+        defer cs.leave();
+        rp2xxx.flash.range_erase(BASE + offset, size);
+    }
+
+    pub fn read(offset: u32, data: []u8) !void {
+        std.mem.copyForwards(u8, data, @as([*]u8, @ptrFromInt(BASE + offset))[0..data.len]);
+    }
+
+    pub fn write(offset: u32, data: []const u8) !void {
+        const PAGE_SIZE = rp2xxx.flash.PAGE_SIZE;
+
+        const cs = enter_critical_section();
+        defer cs.leave();
+
+        var current_offset = offset;
+        var remaining_data = data;
+
+        while (remaining_data.len > 0) {
+            var buffer: [PAGE_SIZE]u8 = @splat(0xFF);
+
+            const page_offset = offset & ~(PAGE_SIZE - 1);
+            const offset_in_page = offset & (PAGE_SIZE - 1);
+            const count = @min(remaining_data.len, PAGE_SIZE - offset_in_page);
+            std.mem.copyForwards(u8, buffer[offset_in_page..][0..count], remaining_data[0..count]);
+
+            rp2xxx.flash.range_program(page_offset, buffer);
+
+            remaining_data = remaining_data[count..];
+            current_offset += count;
+        }
     }
 };
 
