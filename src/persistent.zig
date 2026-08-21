@@ -43,18 +43,18 @@ pub fn StoreGeneric(messages: anytype) type {
     return struct {
         const Store = @This();
 
-        const Storage = drivers.storage.StorageGeneric(hw.chip.Flash, Key, .{});
+        const Storage = drivers.storage.StorageGeneric(hw.Flash, Key, .{});
         const Receivers = GenerateReceiversStruct(messages);
 
         storage: Storage,
         rcvs: Receivers = undefined,
 
         pub fn init(store: *Store, scheduler: *Scheduler) void {
-            hw.chip.flash.erase(hw.def.flash.storage_start, hw.def.flash.storage_end) catch {};
+            hw.flash.erase(hw.def.flash.storage_start, hw.def.flash.storage_end) catch {};
 
             store.* = .{
                 .storage = Storage.init(
-                    &hw.chip.flash,
+                    &hw.flash,
                     hw.def.flash.storage_start,
                     hw.def.flash.storage_end,
                 ) catch @panic("failed to init storage"),

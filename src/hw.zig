@@ -21,8 +21,9 @@ pub const enter_critical_section = chip.enter_critical_section;
 pub const CriticalSection = chip.CriticalSection;
 
 pub const get_time_since_boot = chip.get_time_since_boot;
-pub const clock = chip.clock;
+pub var clock = chip.clock;
 
+// TODO: maybe get rid of these re-exports
 pub const Pin = chip.Pin;
 pub const InterruptPin = chip.InterruptPin;
 
@@ -34,7 +35,7 @@ pub const SPI_Config = chip.SPI_Config;
 pub const SPI = chip.SPI;
 
 pub const FlashConfig = chip.FlashConfig;
-pub const flash = chip.flash;
+pub var flash = chip.flash;
 pub const Flash = chip.Flash;
 
 pub const I2C_Config = chip.I2C_Config;
