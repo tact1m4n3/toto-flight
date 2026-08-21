@@ -12,7 +12,10 @@ pub fn build(b: *std.Build) void {
 
     switch (board) {
         .simulator => {
-            const jsbsim_dep = b.lazyDependency("jsbsim", .{}) orelse return;
+            const jsbsim_dep = b.lazyDependency("jsbsim", .{
+                .target = target,
+                .optimize = .safe,
+            }) orelse return;
 
             const exe = b.addExecutable(.{
                 .name = "simulator",

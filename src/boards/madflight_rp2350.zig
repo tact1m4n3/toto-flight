@@ -1,8 +1,17 @@
 const hw = @import("../hw.zig");
 
+pub const FLASH_SIZE = 16 * 1024 * 1024;
+pub const FLASH_STORAGE_START = FLASH_SIZE - 64 * 1024;
+pub const FLASH_STORAGE_END = FLASH_SIZE;
+
 // TODO: separate config into build specific (eg. my custom plane) and board
 // specific
 pub const hw_def: hw.Definition = .{
+    .flash = .{
+        .size = FLASH_SIZE,
+        .storage_start = FLASH_SIZE - 64 * 1024,
+        .storage_end = FLASH_SIZE,
+    },
     .imu = .{
         .tick_period = .from_hz(1000),
         .type = .lsm6dsv,

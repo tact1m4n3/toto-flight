@@ -8,6 +8,7 @@ pub const Pin = rp2xxx.gpio.Pin;
 const hw = @import("../hw.zig");
 const imu = @import("../imu.zig");
 const receiver = @import("../receiver.zig");
+const persistent = @import("../persistent.zig");
 const Scheduler = @import("../Scheduler.zig");
 const Message = Scheduler.Message;
 const Task = Scheduler.Task;
@@ -28,6 +29,9 @@ pub const interrupts: microzig.InterruptOptions = .{
     .SPAREIRQ_IRQ_3 = .{ .c = SPAREIRQ_IRQ_3 },
 };
 
+var task_store: persistent.StoreGeneric(.{
+    .imu = &imu.msg_params,
+}) = undefined;
 var task_imu: imu.Imu = undefined;
 var task_rx: receiver.Rx = undefined;
 
@@ -41,6 +45,7 @@ pub fn main() noreturn {
     UART.apply_all();
     SPI.apply_all();
 
+    task_store.init(&scheduler_low_priority);
     task_imu.init(&scheduler_realtime_priority);
     task_rx.init(&scheduler_high_priority);
 
@@ -391,7 +396,7 @@ pub const UART1_IRQ: ?microzig.interrupt.Handler = if (UART.from_instance(.{ .ua
 else
     null;
 
-pub const clock: Clock = .{};
+pub var clock: Clock = .{};
 pub const Clock = struct {
     pub fn sleep_ms(_: Clock, ms: u32) void {
         rp2xxx.time.sleep_ms(ms);
@@ -402,28 +407,52 @@ pub const Clock = struct {
     }
 };
 
-pub const flash = struct {
-    const BASE: usize = 16 * 1024 * 1024 - SIZE;
-    pub const SIZE: usize = 64 * 1024;
+pub const FlashConfig = struct {
+    size: u32,
+    storage_start: u32,
+    storage_end: u32,
+};
 
-    comptime {
-        assert(std.mem.isAligned(SIZE, ERASE_SIZE));
-    }
+pub var flash: Flash = .{};
 
-    pub const WRITE_SIZE: usize = 1;
-    pub const ERASE_SIZE: usize = rp2xxx.flash.SECTOR_SIZE;
+pub const Flash = struct {
+    // TODO: if we ever do flash dma transfers we should wait for those to
+    // finish in addition to critical sections
 
-    pub fn erase(offset: u32, size: u32) !void {
+    const BASE = rp2xxx.flash.XIP_BASE;
+    const SIZE = hw.def.flash.size; // TODO: take this from board
+
+    pub const WRITE_SIZE = 1;
+    pub const ERASE_SIZE = rp2xxx.flash.SECTOR_SIZE;
+
+    pub fn erase(_: Flash, offset: u32, size: u32) error{EraseFailed}!void {
+        assert(std.mem.isAlignedGeneric(u32, offset, ERASE_SIZE));
+        assert(std.mem.isAlignedGeneric(u32, size, ERASE_SIZE));
+        assert(offset + size <= SIZE);
+
         const cs = enter_critical_section();
         defer cs.leave();
         rp2xxx.flash.range_erase(BASE + offset, size);
     }
 
-    pub fn read(offset: u32, data: []u8) !void {
+    pub fn read_buf(_: Flash, start: u32, end: u32) error{ ReadFailed, Corrupted }!?[]const u8 {
+        assert(start <= SIZE);
+        assert(end <= SIZE);
+        if (start != end) {
+            return @as([*]u8, @ptrFromInt(BASE))[start..end];
+        } else {
+            return null;
+        }
+    }
+
+    pub fn read(_: Flash, offset: u32, data: []u8) error{ ReadFailed, Corrupted }!void {
+        assert(offset + @as(u32, @truncate(data.len)) <= SIZE);
         std.mem.copyForwards(u8, data, @as([*]u8, @ptrFromInt(BASE + offset))[0..data.len]);
     }
 
-    pub fn write(offset: u32, data: []const u8) !void {
+    pub fn write(_: Flash, offset: u32, data: []const u8) error{ WriteFailed, PageAlreadyProgrammed }!void {
+        assert(offset + @as(u32, @truncate(data.len)) <= SIZE);
+
         const PAGE_SIZE = rp2xxx.flash.PAGE_SIZE;
 
         const cs = enter_critical_section();
@@ -435,12 +464,12 @@ pub const flash = struct {
         while (remaining_data.len > 0) {
             var buffer: [PAGE_SIZE]u8 = @splat(0xFF);
 
-            const page_offset = offset & ~(PAGE_SIZE - 1);
-            const offset_in_page = offset & (PAGE_SIZE - 1);
+            const page_offset = offset & ~@as(u32, PAGE_SIZE - 1);
+            const offset_in_page = offset & @as(u32, PAGE_SIZE - 1);
             const count = @min(remaining_data.len, PAGE_SIZE - offset_in_page);
             std.mem.copyForwards(u8, buffer[offset_in_page..][0..count], remaining_data[0..count]);
 
-            rp2xxx.flash.range_program(page_offset, buffer);
+            rp2xxx.flash.range_program(page_offset, &buffer);
 
             remaining_data = remaining_data[count..];
             current_offset += count;

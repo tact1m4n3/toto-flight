@@ -22,7 +22,6 @@ pub const CriticalSection = chip.CriticalSection;
 
 pub const get_time_since_boot = chip.get_time_since_boot;
 pub const clock = chip.clock;
-pub const flash = chip.flash;
 
 pub const Pin = chip.Pin;
 pub const InterruptPin = chip.InterruptPin;
@@ -34,10 +33,15 @@ pub const UART_RX = chip.UART_RX;
 pub const SPI_Config = chip.SPI_Config;
 pub const SPI = chip.SPI;
 
+pub const FlashConfig = chip.FlashConfig;
+pub const flash = chip.flash;
+pub const Flash = chip.Flash;
+
 pub const I2C_Config = chip.I2C_Config;
 pub const PWM_Config = chip.PWM_Config;
 
 pub const Definition = struct {
+    flash: chip.FlashConfig,
     imu: struct {
         tick_period: time.Duration,
         type: enum {

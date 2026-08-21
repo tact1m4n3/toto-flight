@@ -7,15 +7,7 @@ const isAligned = std.mem.isAlignedGeneric;
 
 const log = std.log.scoped(.storage);
 
-fn is_type_allowed(T: type) bool {
-    return switch (@typeInfo(T)) {
-        .@"struct" => |info| info.layout == .@"extern" or info.layout == .@"packed",
-        .@"enum" => |info| is_type_allowed(info.tag_type),
-        .int => |info| info.bits % 8 == 0,
-        .array => |info| is_type_allowed(info.child),
-        else => false,
-    };
-}
+// TODO: error sets
 
 pub const StorageGenericOptions = struct {
     max_write_attempts: usize = 2,
@@ -200,8 +192,7 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
                     if (item.tag == .freed) continue;
                     switch (item.key) {
                         .ok => |item_key| {
-                            // TODO: key equality based on type
-                            if (key == item_key) {
+                            if (std.mem.eql(u8, std.mem.asBytes(&key), std.mem.asBytes(&item_key))) {
                                 storage.clear_tag(item.offset) catch |err| {
                                     log.warn("failed to mark old item as free at 0x{X}: {}", .{ item.offset, err });
                                 };
@@ -287,8 +278,7 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
                     if (item.tag == .freed) continue;
                     switch (item.key) {
                         .ok => |item_key| {
-                            // TODO: key equality based on type
-                            if (key == item_key) {
+                            if (std.mem.eql(u8, std.mem.asBytes(&key), std.mem.asBytes(&item_key))) {
                                 maybe_item = item;
                             }
                         },
@@ -733,6 +723,16 @@ pub fn MockFlash(options: MockFlashOptions) type {
                 std.mem.copyForwards(u8, self.buf[offset..][copy_offset..][0..WRITE_SIZE], data[copy_offset..][0..WRITE_SIZE]);
             }
         }
+    };
+}
+
+fn is_type_allowed(T: type) bool {
+    return switch (@typeInfo(T)) {
+        .@"struct" => |info| info.layout == .@"extern" or info.layout == .@"packed",
+        .@"enum" => |info| is_type_allowed(info.tag_type),
+        .int => |info| info.bits % 8 == 0,
+        .array => |info| is_type_allowed(info.child),
+        else => false,
     };
 }
 

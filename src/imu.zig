@@ -19,7 +19,7 @@ pub const Data = struct {
     accel: math.Vec3,
 };
 
-pub const Params = struct {
+pub const Params = extern struct {
     gyro_bias: math.Vec3,
     accel_bias: math.Vec3,
     accel_scale: math.Vec3,

@@ -24,7 +24,9 @@ pub fn build(b: *std.Build) void {
         .file = b.path("src/wrapper.cpp"),
     });
     lib.root_module.addIncludePath(vendored_dep.path("src"));
-    lib.root_module.addCMacro("JSBSIM_VERSION", "\"jsbsim.toto-flight\"");
+    lib.root_module.addCMacro("JSBSIM_VERSION", "\"jsbsim\"");
+    lib.root_module.addCMacro("__DATE__", "\"toto-flight\"");
+    lib.root_module.addCMacro("__TIME__", "\"sim\"");
     b.installArtifact(lib);
 
     const bindings_c = b.addTranslateC(.{
