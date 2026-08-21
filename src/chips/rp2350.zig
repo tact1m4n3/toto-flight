@@ -95,10 +95,10 @@ pub fn get_time_since_boot() Absolute {
     return .from_us(rp2xxx.time.get_time_since_boot().to_us());
 }
 
-const scheduler_priority_realtime: microzig.cpu.interrupt.Priority = @enumFromInt(0);
-const scheduler_priority_high: microzig.cpu.interrupt.Priority = @enumFromInt(1);
-const scheduler_priority_mid: microzig.cpu.interrupt.Priority = @enumFromInt(2);
-const scheduler_priority_low: microzig.cpu.interrupt.Priority = @enumFromInt(3);
+const scheduler_priority_realtime: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(0));
+const scheduler_priority_high: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(1));
+const scheduler_priority_mid: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(2));
+const scheduler_priority_low: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(3));
 
 var scheduler_realtime_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_0));
 var scheduler_high_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_1));
@@ -152,11 +152,11 @@ fn SPAREIRQ_IRQ_3() callconv(.c) void {
 }
 
 pub const InterruptPin = enum(u6) {
-    imu = @intFromEnum(hw.def.imu.pin_interrupt),
+    imu = @backingInt(hw.def.imu.pin_interrupt),
 
     pub fn apply_all() void {
         inline for (std.enums.values(InterruptPin)) |interrupt_pin| {
-            const pin: rp2xxx.gpio.Pin = @enumFromInt(@intFromEnum(interrupt_pin));
+            const pin: rp2xxx.gpio.Pin = @fromBackingInt(@intCast(@backingInt(interrupt_pin)));
             pin.set_function(.sio);
             pin.set_direction(.in);
             pin.set_pull(.down);
@@ -188,7 +188,7 @@ fn IO_IRQ_BANK0() linksection(".ram_text") callconv(.c) void {
     var it: rp2xxx.gpio.IrqEventIter = .{};
     while (it.next()) |trigger| {
         if (trigger.events.rise == 1) {
-            if (std.enums.fromInt(InterruptPin, @intFromEnum(trigger.pin))) |pin| {
+            if (std.enums.fromInt(InterruptPin, @backingInt(trigger.pin))) |pin| {
                 interrupt_pin_task_map.getPtr(pin).ready();
             }
         }
