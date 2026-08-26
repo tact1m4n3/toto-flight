@@ -42,7 +42,6 @@ pub const I2C_Config = chip.I2C_Config;
 pub const PWM_Config = chip.PWM_Config;
 
 pub const Definition = struct {
-    flash: chip.FlashConfig,
     imu: struct {
         tick_period: time.Duration,
         type: enum {
@@ -64,6 +63,7 @@ pub const Definition = struct {
         pins: []const Pin,
     },
     servos: []const PWM_Config,
+    flash: chip.FlashConfig,
 };
 
 pub const def: Definition = board.hw_def;

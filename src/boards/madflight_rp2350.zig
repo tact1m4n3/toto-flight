@@ -7,11 +7,6 @@ pub const FLASH_STORAGE_END = FLASH_SIZE;
 // TODO: separate config into build specific (eg. my custom plane) and board
 // specific
 pub const hw_def: hw.Definition = .{
-    .flash = .{
-        .size = FLASH_SIZE,
-        .storage_start = FLASH_SIZE - 64 * 1024,
-        .storage_end = FLASH_SIZE,
-    },
     .imu = .{
         .tick_period = .from_hz(1000),
         .type = .lsm6dsv,
@@ -42,6 +37,11 @@ pub const hw_def: hw.Definition = .{
     .servos = &.{
         .{ .pwm_slice = .num(5), .pin_a = .num(11) },
         .{ .pwm_slice = .num(7), .pin_a = .num(15) },
+    },
+    .flash = .{
+        .size = FLASH_SIZE,
+        .storage_start = FLASH_SIZE - 64 * 1024,
+        .storage_end = FLASH_SIZE,
     },
 };
 

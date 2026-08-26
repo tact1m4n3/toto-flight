@@ -113,31 +113,24 @@ pub fn Message(T: type) type {
         pub const Value = T;
 
         /// Must only be accessed through a critical section.
-        version: u64 = 0,
+        version: u32 = 0,
         /// Must only be accessed through a critical section.
         value: ?T = null,
         /// Must only be accessed through a critical section.
         receivers: std.SinglyLinkedList = .{},
 
-        pub fn get(self: *Self) struct {
-            version: u64,
-            value: ?T,
-        } {
+        pub fn get(self: *Self) struct { ?T, u32 } {
             const cs = hw.enter_critical_section();
             defer cs.leave();
-
-            return .{
-                .version = self.version,
-                .value = self.value,
-            };
+            return .{ self.value, self.version };
         }
 
         pub fn publish(self: *Self, value: T) void {
             const cs = hw.enter_critical_section();
             defer cs.leave();
 
-            self.version +%= 1;
             self.value = value;
+            self.version +%= 1;
 
             var it = self.receivers.first;
             while (it) |node| : (it = node.next) {
@@ -164,13 +157,7 @@ pub fn Message(T: type) type {
                         const maybe_value = blk: {
                             const cs = hw.enter_critical_section();
                             defer cs.leave();
-
-                            if (sub.last_version != msg.version) {
-                                sub.last_version = msg.version;
-                                break :blk msg.value;
-                            } else {
-                                break :blk null;
-                            }
+                            break :blk msg.value;
                         };
 
                         if (maybe_value) |value| {
@@ -195,7 +182,6 @@ pub fn Receiver(T: type) type {
 
         task: Task,
         message: *Message(T),
-        last_version: u64 = 0,
         node: std.SinglyLinkedList.Node = .{},
     };
 }
