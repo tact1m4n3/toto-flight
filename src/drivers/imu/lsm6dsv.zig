@@ -212,6 +212,7 @@ pub fn Lsm6dsvGeneric(
         pub fn verify(self: *Self) !void {
             const whoami = try self.raw_read(.who_am_i);
             if (whoami != who_am_i_reg) {
+                std.log.err("wrong device id: expected {}, got {}", .{ who_am_i_reg, whoami });
                 return error.UnexpectedDeviceId;
             }
         }
@@ -297,7 +298,7 @@ pub fn Lsm6dsvGeneric(
             // 12 data bytes: gyro XYZ then accel XYZ (accel byte order
             // depends on the device variant).
             var buf: [13]u8 = @splat(0);
-            buf[0] = @intFromEnum(Register.outx_l_g) | SPI_READ;
+            buf[0] = @backingInt(Register.outx_l_g) | SPI_READ;
             try self.spi.transceive(&buf);
 
             // buf[0..2] = OUTX_L_G / OUTX_H_G -> gyro X
@@ -345,13 +346,13 @@ pub fn Lsm6dsvGeneric(
 
         /// Single-byte register write, MSB (read/write bit) forced low.
         fn raw_write(self: *Self, reg: Register, value: u8) !void {
-            var buf: [2]u8 = .{ @intFromEnum(reg) & ~SPI_READ, value };
+            var buf: [2]u8 = .{ @backingInt(reg) & ~SPI_READ, value };
             try self.spi.transceive(&buf);
         }
 
         /// Single-byte register read.
         fn raw_read(self: *Self, reg: Register) !u8 {
-            var value: [2]u8 = .{ @intFromEnum(reg) | SPI_READ, 0 };
+            var value: [2]u8 = .{ @backingInt(reg) | SPI_READ, 0 };
             try self.spi.transceive(&value);
             return value[1];
         }
@@ -486,7 +487,7 @@ pub fn Lsm6dsvGeneric(
 
 /// LSM6DSV / LSM6DSV16X (WHO_AM_I = 0x70, standard accel axis order).
 pub fn Lsm6dsv(comptime Spi: type) type {
-    return Lsm6dsvGeneric(Spi, 0x70, false);
+    return Lsm6dsvGeneric(Spi, 0x71, false);
 }
 pub fn Lsm6dsv16x(comptime Spi: type) type {
     return Lsm6dsvGeneric(Spi, 0x70, false);

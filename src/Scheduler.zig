@@ -75,7 +75,7 @@ pub const Task = struct {
         comptime callback: fn (Context, *Task) void,
         scheduler: *Scheduler,
     ) void {
-        assert(task.state.swap(.initializing, .acquire) != .uninitialized);
+        assert(task.state.swap(.initializing, .acquire) == .uninitialized);
 
         task.scheduler = scheduler;
         task.context = context;
@@ -86,7 +86,7 @@ pub const Task = struct {
 
     /// Thread safe.
     pub fn ready(task: *Task) void {
-        if (task.state.swap(.ready, .monotonic) != .ready) {
+        if (task.state.swap(.ready, .acquire) == .waiting) {
             task.scheduler.ready_tasks.push(&task.node);
             task.scheduler.pend_fn();
         }
@@ -106,6 +106,7 @@ pub const Task = struct {
     }
 };
 
+// TODO: see how much code duplication this produces because it is generic
 pub fn Message(T: type) type {
     return struct {
         const Self = @This();
@@ -119,7 +120,13 @@ pub fn Message(T: type) type {
         /// Must only be accessed through a critical section.
         receivers: std.SinglyLinkedList = .{},
 
-        pub fn get(self: *Self) struct { ?T, u32 } {
+        pub fn get(self: *Self) ?T {
+            const cs = hw.enter_critical_section();
+            defer cs.leave();
+            return self.value;
+        }
+
+        pub fn get_with_version(self: *Self) struct { ?T, u32 } {
             const cs = hw.enter_critical_section();
             defer cs.leave();
             return .{ self.value, self.version };
@@ -172,6 +179,11 @@ pub fn Message(T: type) type {
             defer cs.leave();
 
             self.receivers.prepend(&receiver.node);
+
+            // if a value has already been published, immediately schedule the task
+            if (self.value != null) {
+                receiver.task.ready();
+            }
         }
     };
 }

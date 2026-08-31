@@ -1,16 +1,16 @@
 const std = @import("std");
 
 const hw = @import("hw.zig");
+const control = @import("control.zig");
 const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
-const drivers = @import("drivers.zig");
-
 const imu = @import("imu.zig");
+const drivers = @import("drivers.zig");
 
 const log = std.log.scoped(.persistent);
 
-pub var msg_store: Message(void) = .{};
+pub var msg_save: Message(void) = .{};
 
 pub fn StoreGeneric(messages: anytype) type {
     const info = @typeInfo(@TypeOf(messages)).@"struct";
@@ -22,11 +22,12 @@ pub fn StoreGeneric(messages: anytype) type {
         const Versions = GenerateVersionsStruct(messages);
 
         storage: Storage,
-        rcv_store: Receiver(void) = undefined,
+        rcv_save: Receiver(void) = undefined,
         versions: Versions = undefined,
 
         pub fn init(store: *Store, scheduler: *Scheduler) void {
-            hw.flash.erase(hw.def.flash.storage_start, hw.def.flash.storage_end) catch {};
+            // log.info("erasing", .{});
+            // hw.flash.erase(hw.def.flash.storage_start, hw.def.flash.storage_end - hw.def.flash.storage_start) catch {};
 
             store.* = .{
                 .storage = Storage.init(
@@ -36,31 +37,30 @@ pub fn StoreGeneric(messages: anytype) type {
                 ) catch @panic("failed to init storage"),
             };
 
-            {
-                // don't allow any updates between read_all and reading the
-                // current versions. This is a long critical section but it is
-                // only executed during initialization
+            store.storage.print_all_items() catch @panic("failed to print storage items");
 
-                const cs = hw.chip.enter_critical_section();
-                defer cs.leave();
+            store.read_all() catch |err| {
+                log.warn("failed to publish config: {}", .{err});
+                return;
+            };
 
-                store.read_all() catch |err| {
-                    log.warn("failed to publish config: {}", .{err});
-                    return;
-                };
-
-                inline for (info.field_names) |field_name| {
-                    _, const current_version = @field(messages, field_name).get();
-                    @field(store.versions, field_name) = current_version;
-                }
+            inline for (info.field_names) |field_name| {
+                _, const current_version = @field(messages, field_name).get_with_version();
+                @field(store.versions, field_name) = current_version;
             }
 
-            msg_store.subscribe(&store.rcv_store, *Store, store, store_callback, scheduler);
+            msg_save.subscribe(&store.rcv_save, *Store, store, save_callback, scheduler);
         }
 
-        fn store_callback(store: *Store, _: void) void {
+        fn save_callback(store: *Store, _: void) void {
+            const arm_state = if (control.msg_status.get()) |status| status.arm else false;
+            if (arm_state) {
+                log.warn("skipping config save because system is armed", .{});
+                return;
+            }
+
             inline for (info.field_names) |field_name| {
-                const maybe_params, const current_version = @field(messages, field_name).get();
+                const maybe_params, const current_version = @field(messages, field_name).get_with_version();
                 if (@field(store.versions, field_name) != current_version) {
                     if (maybe_params) |params| {
                         const key = comptime generate_key(field_name);

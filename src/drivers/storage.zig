@@ -8,6 +8,7 @@ const isAligned = std.mem.isAlignedGeneric;
 const log = std.log.scoped(.storage);
 
 // TODO: error sets
+// TODO: caching
 
 pub const StorageGenericOptions = struct {
     max_write_attempts: usize = 2,
@@ -15,19 +16,24 @@ pub const StorageGenericOptions = struct {
     max_read_attempts: usize = 2,
 };
 
-// Storage layout:
-//
-// [locked_sector] [locked_sector] [active_sector] [erased_sector] [locked_sector] [erased_or_locked_sectors...]
-//
-// Sector layout:
-//
-// [sector_tag] [item_tag] [item_header_padded] [key_padded] [value_padded] [next_items ...]
-//  0x00||0xFF  0x00||0xFF
-//
-//  * padded to a write page
-//
+/// A generic storage implementation that can be used with any flash device.
+/// Items are stored sequentially in sectors (inspired by the rust crate
+/// sequential storage). It should be resilient to power loss and flash
+/// corruption, but if any sector becomes bad it is game over.
+///
+/// Storage layout:
+///
+/// [locked_sector] [locked_sector] [active_sector] [erased_sector] [locked_sector] [erased_or_locked_sectors...]
+///
+/// Sector layout:
+///
+/// [sector_tag] [item_tag] [item_header_padded] [key_padded] [value_padded] [next_items ...]
+///  0x00||0xFF  0x00||0xFF
+///
+/// * padded to a write page
+///
 pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) type {
-    if (!is_type_allowed(Key)) @compileError("Invalid key type " ++ @typeName(Key));
+    if (!is_type_allowed(Key)) @compileError("invalid key type " ++ @typeName(Key));
 
     return struct {
         const Storage = @This();
@@ -126,7 +132,7 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
         }
 
         pub fn fetch(storage: *Storage, key: Key, comptime T: type) !?T {
-            if (comptime !is_type_allowed(T)) @compileError("Invalid value type " ++ @typeName(T));
+            if (comptime !is_type_allowed(T)) @compileError("invalid value type " ++ @typeName(T));
 
             if (try storage.fetch_item_internal(key, storage.last_sector_offset)) |item| {
                 var value: T = undefined;
@@ -136,7 +142,7 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
         }
 
         pub fn store(storage: *Storage, key: Key, value: anytype) !void {
-            if (comptime !is_type_allowed(@TypeOf(value))) @compileError("Invalid value type " ++ @typeName(@TypeOf(value)));
+            if (comptime !is_type_allowed(@TypeOf(value))) @compileError("invalid value type " ++ @typeName(@TypeOf(value)));
 
             const item_len: u16 = VALUE_OFFSET + @sizeOf(@TypeOf(value));
             const item_stride = alignForward(u16, item_len, WRITE_SIZE);
@@ -159,15 +165,15 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
                     var header: ItemHeader = .init(crc.final(), item_len);
 
                     storage.write_retrying_aligned(storage.current_offset + HEADER_OFFSET, std.mem.asBytes(&header)) catch |err| switch (err) {
-                        error.PageAlreadyProgrammed => continue :to_next_sector,
+                        error.InvalidWrite => continue :to_next_sector,
                         else => return err,
                     };
                     storage.write_retrying_aligned(storage.current_offset + KEY_OFFSET, std.mem.asBytes(&key)) catch |err| switch (err) {
-                        error.PageAlreadyProgrammed => continue :to_next_slot,
+                        error.InvalidWrite => continue :to_next_slot,
                         else => return err,
                     };
                     storage.write_retrying_aligned(storage.current_offset + VALUE_OFFSET, std.mem.asBytes(&value)) catch |err| switch (err) {
-                        error.PageAlreadyProgrammed => continue :to_next_slot,
+                        error.InvalidWrite => continue :to_next_slot,
                         else => return err,
                     };
 
@@ -242,8 +248,8 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
                                 src_offset += @truncate(data.len);
                                 dst_offset += @truncate(data.len);
                             }) {
-                                // can't fail with error.PageAlreadyProgrammed
-                                // because we are writing to a fresh sector
+                                // if this fails it is something seriosly wrong
+                                // with the page, so we can't proceed
                                 try storage.write_retrying_aligned(dst_offset, data);
                             }
 
@@ -300,7 +306,7 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
             while (true) : (current_sector_offset = storage.get_prev_sector(current_sector_offset)) {
                 var item_it: ItemIterator = .init(storage, current_sector_offset);
                 while (try item_it.next()) |item| {
-                    std.debug.print("found item, sector={}, offset={}, tag={}, key={}\n", .{
+                    log.info("found item, sector={}, offset={}, tag={}, key={}", .{
                         current_sector_offset,
                         item.offset,
                         item.tag,
@@ -386,25 +392,25 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
 
         fn write_retrying(storage: *Storage, offset: u32, data: []const u8) !void {
             var attempts_remaining: usize = options.max_write_attempts;
-            attempts: while (attempts_remaining > 0) : (attempts_remaining -= 1) {
-                storage.flash.write(offset, data) catch |err| switch (err) {
-                    error.PageAlreadyProgrammed => return error.PageAlreadyProgrammed,
-                    else => continue,
-                };
+            while (attempts_remaining > 0) : (attempts_remaining -= 1) {
+                storage.flash.write(offset, data) catch continue;
+                break;
+            }
 
-                // verify what was written
-                var current_offset = offset;
-                var data_offset: usize = 0;
-                const end = current_offset + @as(u32, @truncate(data.len));
-                while (try storage.read_buf_retrying(current_offset, end)) |flash_data| : ({
-                    current_offset += @truncate(flash_data.len);
-                    data_offset += flash_data.len;
-                }) {
-                    if (!std.mem.eql(u8, flash_data, data[data_offset..][0..flash_data.len])) {
-                        continue :attempts;
-                    }
-                } else break :attempts;
-            } else return error.WriteFailed;
+            var current_offset = offset;
+            var data_offset: usize = 0;
+            const end = current_offset + @as(u32, @truncate(data.len));
+            while (storage.read_buf_retrying(current_offset, end) catch |err| switch (err) {
+                error.Corrupted => return error.InvalidWrite,
+                else => return err,
+            }) |flash_data| : ({
+                current_offset += @truncate(flash_data.len);
+                data_offset += flash_data.len;
+            }) {
+                if (!std.mem.eql(u8, flash_data, data[data_offset..][0..flash_data.len])) {
+                    return error.InvalidWrite;
+                }
+            }
         }
 
         fn erase_sector_retrying(storage: *Storage, offset: u32) !void {
@@ -596,7 +602,6 @@ pub fn MockFlash(options: MockFlashOptions) type {
         pub const ERASE_SIZE = options.erase_size;
 
         buf: []u8,
-        page_programmed_bitset: std.bit_set.Dynamic,
 
         corruption_tripwire: ?u32 = null,
         power_loss_tripwire: ?u32 = null,
@@ -611,20 +616,13 @@ pub fn MockFlash(options: MockFlashOptions) type {
             errdefer gpa.free(buf);
             @memset(buf, 0xFF);
 
-            const page_count = size / options.write_size;
-
-            var page_programmed_bitset: std.bit_set.Dynamic = try .initEmpty(gpa, page_count);
-            errdefer page_programmed_bitset.deinit(gpa);
-
             return .{
                 .buf = buf,
-                .page_programmed_bitset = page_programmed_bitset,
             };
         }
 
         pub fn deinit(self: *Self, gpa: std.mem.Allocator) void {
             gpa.free(self.buf);
-            self.page_programmed_bitset.deinit(gpa);
         }
 
         pub fn erase(self: *Self, offset: u32, size: u32) error{InvalidRange}!void {
@@ -656,8 +654,6 @@ pub fn MockFlash(options: MockFlashOptions) type {
                     break;
                 }
 
-                self.page_programmed_bitset.unset(page_id);
-
                 @memset(self.buf[offset..][erase_offset..][0..WRITE_SIZE], 0xFF);
             }
         }
@@ -666,7 +662,11 @@ pub fn MockFlash(options: MockFlashOptions) type {
             if (offset > self.buf.len or end > self.buf.len) return error.InvalidRange;
 
             if (self.corruption_tripwire) |corruption_tripwire| {
-                if (offset <= corruption_tripwire and corruption_tripwire < end) {
+                const start_page_id = alignBackward(u32, offset, WRITE_SIZE) / WRITE_SIZE;
+                const end_page_id = alignForward(u32, end, WRITE_SIZE) / WRITE_SIZE;
+                if (start_page_id <= corruption_tripwire and
+                    corruption_tripwire < end_page_id)
+                {
                     return error.Corrupted;
                 }
             }
@@ -682,7 +682,9 @@ pub fn MockFlash(options: MockFlashOptions) type {
             if (offset + data.len > self.buf.len) return error.InvalidRange;
 
             if (self.corruption_tripwire) |corruption_tripwire| {
-                if (offset <= corruption_tripwire and corruption_tripwire < offset + @as(u32, @truncate(data.len))) {
+                const start_page_id = alignBackward(u32, offset, WRITE_SIZE) / WRITE_SIZE;
+                const end_page_id = alignForward(u32, offset + @as(u32, @truncate(data.len)), WRITE_SIZE) / WRITE_SIZE;
+                if (start_page_id <= corruption_tripwire and corruption_tripwire < end_page_id) {
                     return error.Corrupted;
                 }
             }
@@ -690,7 +692,7 @@ pub fn MockFlash(options: MockFlashOptions) type {
             std.mem.copyForwards(u8, data, self.buf[offset..][0..data.len]);
         }
 
-        pub fn write(self: *Self, offset: u32, data: []const u8) error{ InvalidRange, WriteFailed, PageAlreadyProgrammed }!void {
+        pub fn write(self: *Self, offset: u32, data: []const u8) error{ InvalidRange, WriteFailed }!void {
             if (offset + data.len > self.buf.len) {
                 return error.InvalidRange;
             }
@@ -714,11 +716,6 @@ pub fn MockFlash(options: MockFlashOptions) type {
                     self.power_loss_tripped = true;
                     break;
                 }
-
-                if (self.page_programmed_bitset.isSet(page_id)) {
-                    return error.PageAlreadyProgrammed;
-                }
-                self.page_programmed_bitset.set(page_id);
 
                 std.mem.copyForwards(u8, self.buf[offset..][copy_offset..][0..WRITE_SIZE], data[copy_offset..][0..WRITE_SIZE]);
             }
@@ -842,7 +839,7 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
     };
 }
 
-// TODO: fuzzing when it is fixed
+// TODO: fuzzing when it is fixed, on the zig version this was written in it is broken
 // test "storage.basic" {
 //     try testing.fuzz({}, fuzz_storage, .{});
 // }
@@ -901,89 +898,5 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
 //             //     while (try it.next()) |item| {}
 //             // },
 //         }
-//     }
-// }
-//
-// pub fn write(self: *Self, offset: u32, value: anytype, endian: std.lang.Endian) !void {
-//     switch (@typeInfo(@TypeOf(value))) {
-//         .@"struct" => |info| switch (info.layout) {
-//             .auto => @compileError("struct must be extern or packed"),
-//             .@"extern" => {
-//                 if (native_endian == endian) {
-//                     try self.write_raw(
-//                         offset,
-//                         @ptrCast((&value)[0..1]),
-//                     );
-//                 } else {
-//                     var copy = value;
-//                     std.mem.byteSwapAllFields(@TypeOf(value), &copy);
-//                     try self.write_raw(
-//                         offset,
-//                         @ptrCast((&copy)[0..1]),
-//                     );
-//                 }
-//             },
-//             .@"packed" => {
-//                 const BackingInt = info.backing_integer.?;
-//                 var header_buf: [@sizeOf(BackingInt)]u8 = undefined;
-//                 std.mem.writeInt(BackingInt, &header_buf, @bitCast(value), endian);
-//                 try self.write_raw(
-//                     offset,
-//                     &header_buf,
-//                 );
-//             },
-//         },
-//         // .@"union" => |info| switch (info.layout) {
-//         //     .auto => {
-//         //         const Tag = info.tag_type.?;
-//         //         switch (value) {
-//         //             inline else => |inner, tag| {
-//         //                 var tag_buf: [@sizeOf(Tag)]u8 = undefined;
-//         //                 std.mem.writeInt(Tag, &tag_buf, @bitCast(tag), endian);
-//         //                 try self.write_raw(
-//         //                     offset,
-//         //                     &tag_buf,
-//         //                 );
-//         //                 try self.write(
-//         //                     offset + @sizeOf(Tag),
-//         //                     inner,
-//         //                     endian,
-//         //                 );
-//         //             },
-//         //         }
-//         //     },
-//         //     else => @compileError("union must be auto"),
-//         // },
-//         else => @compileError("unexpected type " ++ @typeName(@TypeOf(value))),
-//     }
-// }
-
-// pub fn read(comptime T: type, offset: u32, endian: std.lang.Endian) T {
-//     switch (@typeInfo(T)) {
-//         .@"struct" => |info| switch (info.layout) {
-//             .auto => @compileError("struct must be extern or packed"),
-//             .@"extern" => {
-//                 if (native_endian == endian) {
-//                     return @as([]T, @ptrCast(flash.data[offset..][0..@sizeOf(T)]))[0];
-//                 } else {
-//                     var value: T = undefined;
-//                     std.mem.readInt(T, @as([]T, @ptrCast(flash.data[offset..][0..@sizeOf(T)]))[0], &value, endian);
-//                     std.mem.byteSwapAllFields(T, &value);
-//                     return value;
-//                 }
-//             },
-//             .@"packed" => {
-//                 const BackingInt = info.backing_integer.?;
-//                 var value: T = undefined;
-//                 std.mem.readInt(
-//                     BackingInt,
-//                     @as([]BackingInt, @ptrCast(flash.data[offset..][0..@sizeOf(BackingInt)]))[0],
-//                     &value,
-//                     endian,
-//                 );
-//                 return value;
-//             },
-//         },
-//         else => @compileError("expected struct"),
 //     }
 // }

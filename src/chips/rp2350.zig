@@ -5,6 +5,7 @@ const microzig = @import("microzig");
 const rp2xxx = microzig.hal;
 pub const Pin = rp2xxx.gpio.Pin;
 
+const control = @import("../control.zig");
 const hw = @import("../hw.zig");
 const imu = @import("../imu.zig");
 const receiver = @import("../receiver.zig");
@@ -32,12 +33,20 @@ pub const interrupts: microzig.InterruptOptions = .{
 var task_store: persistent.StoreGeneric(.{
     .imu = &imu.msg_params,
 }) = undefined;
+
 var task_imu: imu.Imu = undefined;
 var task_rx: receiver.Rx = undefined;
+var task_channel_mapper: receiver.ChannelMapper = undefined;
+
+var task_control: control.Loop = undefined;
 
 pub fn main() noreturn {
+    microzig.cpu.interrupt.disable_interrupts();
+
     RTT.init();
     rtt_logger = RTT.writer(0, &rtt_writer_buf);
+
+    log.info("booting", .{});
 
     schedulers_init();
 
@@ -45,11 +54,19 @@ pub fn main() noreturn {
     UART.apply_all();
     SPI.apply_all();
 
+    log.info("initializing tasks", .{});
+
     task_store.init(&scheduler_low_priority);
+
     task_imu.init(&scheduler_realtime_priority);
     task_rx.init(&scheduler_high_priority);
+    task_channel_mapper.init(&scheduler_high_priority);
+
+    // task_control.init(&scheduler_realtime_priority);
 
     microzig.cpu.interrupt.enable_interrupts();
+
+    log.info("initialization done", .{});
 
     while (true) {
         microzig.cpu.wfi();
@@ -164,11 +181,11 @@ pub const InterruptPin = enum(u6) {
             const pin: rp2xxx.gpio.Pin = @fromBackingInt(@intCast(@backingInt(interrupt_pin)));
             pin.set_function(.sio);
             pin.set_direction(.in);
-            pin.set_pull(.down);
+            pin.set_pull(.up);
             pin.set_irq_enabled(.{ .rise = 1 }, true);
-            microzig.cpu.interrupt.clear_pending(.IO_IRQ_BANK0);
-            microzig.cpu.interrupt.enable(.IO_IRQ_BANK0);
         }
+        microzig.cpu.interrupt.clear_pending(.IO_IRQ_BANK0);
+        microzig.cpu.interrupt.enable(.IO_IRQ_BANK0);
     }
 
     pub fn subscribe(
@@ -283,8 +300,6 @@ pub fn UART_State(cfg: UART_Config) type {
     return struct {
         const Self = @This();
 
-        // TODO: maybe just use interrupts instead of dma
-
         const RxError = rp2xxx.uart.ReceiveError;
         tx_ring_buf: RingBuffer(u8, cfg.buf_size_tx) = .{},
         rx_ring_buf: RingBuffer(u8, cfg.buf_size_rx) = .{},
@@ -300,6 +315,7 @@ pub fn UART_State(cfg: UART_Config) type {
                         .clock_config = rp2xxx.clock_config,
                         .baud_rate = cfg.baud_rate,
                     });
+
                     uart.set_interrupts_enabled(.{
                         .rx = true,
                         .tx = true,
@@ -420,7 +436,7 @@ pub const Flash = struct {
     // finish in addition to critical sections
 
     const BASE = rp2xxx.flash.XIP_BASE;
-    const SIZE = hw.def.flash.size; // TODO: take this from board
+    const SIZE = hw.def.flash.size;
 
     pub const WRITE_SIZE = 1;
     pub const ERASE_SIZE = rp2xxx.flash.SECTOR_SIZE;

@@ -36,6 +36,8 @@ pub fn build(b: *std.Build) void {
             run_step.dependOn(&run.step);
         },
         else => |uc_board| {
+            const ram_build = b.option(bool, "ram", "build firmware to run from RAM only") orelse false;
+
             const mz_dep = b.lazyDependency("microzig", .{}) orelse return;
             const mb = MicroBuild.init(b, mz_dep) orelse return;
 
@@ -57,7 +59,12 @@ pub fn build(b: *std.Build) void {
                         .{ .tag = .ram, .offset = 0x20081000, .length = 4 * 1024, .access = .rwx },
                     };
 
-                    break :blk mb.ports.rp2xxx.boards.raspberrypi.pico2_arm.derive(.{
+                    const base_target = if (ram_build)
+                        mb.ports.rp2xxx.boards.raspberrypi.pico2_arm_flashless
+                    else
+                        mb.ports.rp2xxx.boards.raspberrypi.pico2_arm;
+
+                    break :blk base_target.derive(.{
                         .chip = modified_chip,
                     });
                 },
@@ -76,6 +83,10 @@ pub fn build(b: *std.Build) void {
 
             mb.install_firmware(fw, .{});
             mb.install_firmware(fw, .{ .format = .elf });
+
+            const zprobe_load_run = load(b, fw.get_emitted_elf());
+            const run_step = b.step("run", "Run firmware");
+            run_step.dependOn(zprobe_load_run);
         },
     }
 
@@ -103,3 +114,19 @@ const Board = enum {
 const MicroBuild = microzig.MicroBuild(.{
     .rp2xxx = true,
 });
+
+// Actually depend on zprobe after porting to 0.17
+pub fn load(b: *std.Build, elf_file: std.Build.LazyPath) *std.Build.Step {
+    const run = b.addSystemCommand(&.{
+        "zprobe",
+        "load",
+        "--chip",
+        "RP2350",
+        "--speed",
+        "10MHz",
+        "--rtt",
+    });
+    run.addFileArg(elf_file);
+
+    return &run.step;
+}

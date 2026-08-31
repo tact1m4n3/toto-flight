@@ -1,12 +1,23 @@
+const hw = @import("hw.zig");
+const Message = @import("Scheduler.zig").Message;
+
+pub const tickers = struct {
+    pub var @"100Hz": Message(void) = .{};
+};
+
+pub fn get_time_since_boot() Absolute {
+    return hw.chip.get_time_since_boot();
+}
+
 pub const Absolute = enum(u64) {
     _,
 
     pub fn from_us(us: u64) Absolute {
-        return @as(Absolute, @enumFromInt(us));
+        return @as(Absolute, @fromBackingInt(@intCast(us)));
     }
 
     pub fn to_us(abs: Absolute) u64 {
-        return @intFromEnum(abs);
+        return @backingInt(abs);
     }
 
     pub fn is_reached_by(deadline: Absolute, point: Absolute) bool {
@@ -38,7 +49,7 @@ pub const Duration = enum(u64) {
     _,
 
     pub fn from_us(us: u64) Duration {
-        return @as(Duration, @enumFromInt(us));
+        return @as(Duration, @fromBackingInt(@intCast(us)));
     }
 
     pub fn from_ms(ms: u64) Duration {
@@ -50,11 +61,11 @@ pub const Duration = enum(u64) {
     }
 
     pub fn to_us(duration: Duration) u64 {
-        return @intFromEnum(duration);
+        return @backingInt(duration);
     }
 
     pub fn to_ms(duration: Duration) u64 {
-        return @intFromEnum(duration) / 1000;
+        return @backingInt(duration) / 1000;
     }
 
     pub fn less_than(self: Duration, other: Duration) bool {
