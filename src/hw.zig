@@ -6,11 +6,7 @@ pub const is_sim = options.board == .simulator;
 
 pub const chip = switch (options.board) {
     .madflight_rp2350 => @import("chips/rp2350.zig"),
-    .simulator => struct {
-        pub fn get_absolute_time() time.Absolute {
-            return @import("root").time_absolute;
-        }
-    },
+    .simulator => @import("chips/simulator.zig"),
 };
 pub const board = switch (options.board) {
     .madflight_rp2350 => @import("boards/madflight_rp2350.zig"),
@@ -21,7 +17,8 @@ pub const enter_critical_section = chip.enter_critical_section;
 pub const CriticalSection = chip.CriticalSection;
 
 pub const get_time_since_boot = chip.get_time_since_boot;
-pub var clock = chip.clock;
+pub const clock = &chip.clock;
+pub const Ticker = chip.Ticker;
 
 // TODO: maybe get rid of these re-exports
 pub const Pin = chip.Pin;
@@ -35,7 +32,7 @@ pub const SPI_Config = chip.SPI_Config;
 pub const SPI = chip.SPI;
 
 pub const FlashConfig = chip.FlashConfig;
-pub var flash = chip.flash;
+pub const flash = &chip.flash;
 pub const Flash = chip.Flash;
 
 pub const I2C_Config = chip.I2C_Config;

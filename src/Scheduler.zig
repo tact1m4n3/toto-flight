@@ -10,6 +10,9 @@ const Duration = time.Duration;
 
 const Scheduler = @This();
 
+// TODO: Make an EventGroup kind of type, so you could listen for armed, failsafe
+// etc. events directly
+
 pend_fn: *const fn () void,
 ready_tasks: TransferStack,
 
@@ -26,8 +29,6 @@ pub fn run(scheduler: *Scheduler) void {
         it = node.next;
 
         const task: *Task = @fieldParentPtr("node", node);
-
-        assert(task.state.swap(.waiting, .monotonic) == .ready);
         task.callback(task.context, task);
     }
 }
@@ -39,17 +40,8 @@ pub const Task = struct {
     callback: *const fn (?*anyopaque, *Task) void,
     node: TransferStack.Node = .{},
 
-    pub const uninitialized: Task = .{
-        .state = .init(.uninitialized),
-        .scheduler = undefined,
-        .context = undefined,
-        .callback = undefined,
-    };
-
     pub const State = enum(u8) {
-        uninitialized,
-        initializing,
-        waiting,
+        idle,
         ready,
     };
 
@@ -60,49 +52,49 @@ pub const Task = struct {
         scheduler: *Scheduler,
     ) Task {
         return .{
-            .state = .init(.waiting),
+            .state = .init(.idle),
             .scheduler = scheduler,
             .context = context,
-            .callback = erase_context(Context, callback),
+            .callback = init_callback(Context, callback),
         };
-    }
-
-    /// Thread safe. Idempotent.
-    pub fn init_late(
-        task: *Task,
-        Context: type,
-        context: Context,
-        comptime callback: fn (Context, *Task) void,
-        scheduler: *Scheduler,
-    ) void {
-        assert(task.state.swap(.initializing, .acquire) == .uninitialized);
-
-        task.scheduler = scheduler;
-        task.context = context;
-        task.callback = erase_context(Context, callback);
-
-        assert(task.state.swap(.waiting, .release) == .initializing);
     }
 
     /// Thread safe.
     pub fn ready(task: *Task) void {
-        if (task.state.swap(.ready, .acquire) == .waiting) {
+        if (task.state.swap(.ready, .acquire) == .idle) {
             task.scheduler.ready_tasks.push(&task.node);
             task.scheduler.pend_fn();
         }
     }
 
-    fn erase_context(
+    fn init_callback(
         Context: type,
         comptime callback: fn (Context, *Task) void,
     ) *const fn (?*anyopaque, *Task) void {
         const Erased = struct {
             pub fn wrapper(type_erased_context: ?*anyopaque, task: *Task) void {
                 const context: Context = @ptrCast(@alignCast(type_erased_context));
+                assert(task.state.swap(.idle, .release) == .ready);
                 callback(context, task);
             }
         };
         return &Erased.wrapper;
+    }
+};
+
+pub const Waker = struct {
+    wakey: std.atomic.Value(?*Task) = .init(null),
+
+    pub fn register(
+        waker: *Waker,
+        task: *Task,
+    ) void {
+        assert(waker.wakey.swap(task, .release) == null);
+    }
+
+    pub fn wake(waker: *Waker) void {
+        const task = waker.wakey.load(.monotonic) orelse return;
+        task.ready();
     }
 };
 
@@ -114,32 +106,23 @@ pub fn Message(T: type) type {
         pub const Value = T;
 
         /// Must only be accessed through a critical section.
-        version: u32 = 0,
-        /// Must only be accessed through a critical section.
         value: ?T = null,
         /// Must only be accessed through a critical section.
         receivers: std.SinglyLinkedList = .{},
 
-        pub fn get(self: *Self) ?T {
+        pub fn get(message: *Self) ?T {
             const cs = hw.enter_critical_section();
             defer cs.leave();
-            return self.value;
+            return message.value;
         }
 
-        pub fn get_with_version(self: *Self) struct { ?T, u32 } {
-            const cs = hw.enter_critical_section();
-            defer cs.leave();
-            return .{ self.value, self.version };
-        }
-
-        pub fn publish(self: *Self, value: T) void {
+        pub fn publish(message: *Self, value: T) void {
             const cs = hw.enter_critical_section();
             defer cs.leave();
 
-            self.value = value;
-            self.version +%= 1;
+            message.value = value;
 
-            var it = self.receivers.first;
+            var it = message.receivers.first;
             while (it) |node| : (it = node.next) {
                 const subscriber: *Receiver(T) = @alignCast(@fieldParentPtr("node", node));
                 subscriber.task.ready();
@@ -148,7 +131,7 @@ pub fn Message(T: type) type {
         }
 
         pub fn subscribe(
-            self: *Self,
+            message: *Self,
             receiver: *Receiver(T),
             Context: type,
             context: Context,
@@ -158,30 +141,23 @@ pub fn Message(T: type) type {
             receiver.* = .{
                 .task = .init(Context, context, struct {
                     fn wrapper(ctx: Context, task: *Task) void {
-                        const sub: *Receiver(T) = @alignCast(@fieldParentPtr("task", task));
-                        const msg = sub.message;
-
-                        const maybe_value = blk: {
-                            const cs = hw.enter_critical_section();
-                            defer cs.leave();
-                            break :blk msg.value;
-                        };
-
-                        if (maybe_value) |value| {
+                        const rcv: *Receiver(T) = @alignCast(@fieldParentPtr("task", task));
+                        if (rcv.message.get()) |value| {
                             callback(ctx, value);
                         }
                     }
                 }.wrapper, scheduler),
-                .message = self,
+                .message = message,
             };
 
             const cs = hw.enter_critical_section();
             defer cs.leave();
 
-            self.receivers.prepend(&receiver.node);
+            message.receivers.prepend(&receiver.node);
 
-            // if a value has already been published, immediately schedule the task
-            if (self.value != null) {
+            // if a value has already been published, immediately schedule the
+            // task (it will run after init)
+            if (message.value != null) {
                 receiver.task.ready();
             }
         }
@@ -190,11 +166,41 @@ pub fn Message(T: type) type {
 
 pub fn Receiver(T: type) type {
     return struct {
-        const Self = @This();
-
         task: Task,
         message: *Message(T),
         node: std.SinglyLinkedList.Node = .{},
+    };
+}
+
+pub fn ParamTable(T: type) type {
+    return struct {
+        const Self = @This();
+
+        pub const Type = T;
+
+        /// Must only be accessed through a critical section.
+        value: ?T = null,
+        /// Must only be accessed through a critical section.
+        version: u32 = 0,
+
+        pub fn get(table: *Self) ?T {
+            const cs = hw.enter_critical_section();
+            defer cs.leave();
+            return table.value;
+        }
+
+        pub fn get_with_version(table: *Self) struct { ?T, u32 } {
+            const cs = hw.enter_critical_section();
+            defer cs.leave();
+            return .{ table.value, table.version };
+        }
+
+        pub fn update(table: *Self, value: T) void {
+            const cs = hw.enter_critical_section();
+            defer cs.leave();
+            table.value = value;
+            table.version += 1;
+        }
     };
 }
 
@@ -257,5 +263,5 @@ test "Scheduler" {
 
     scheduler.run();
     try testing.expect(ran);
-    try testing.expectEqual(Task.State.waiting, task.state.load(.monotonic));
+    try testing.expectEqual(Task.State.idle, task.state.load(.monotonic));
 }

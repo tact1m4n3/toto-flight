@@ -2,7 +2,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 const testing = std.testing;
 
-const persistent = @import("persistent.zig");
+const time = @import("time.zig");
+const storage = @import("storage.zig");
 const control = @import("control.zig");
 const hw = @import("hw.zig");
 const imu = @import("imu.zig");
@@ -22,9 +23,12 @@ pub const Rx = struct {
         .crsf => @import("parsers/CRSF.zig"),
     } = .{},
 
+    task: Task = undefined,
+
     pub fn init(rx: *Rx, scheduler: *Scheduler) void {
         rx.* = .{};
-        hw.UART_RX.receiver.subscribe(*Rx, rx, switch (hw.def.receiver.protocol) {
+
+        hw.UART_RX.receiver.subscribe(&rx.task, *Rx, rx, switch (hw.def.receiver.protocol) {
             .crsf => receive_byte_crsf,
         }, scheduler);
     }
@@ -109,7 +113,7 @@ pub const ChannelMapper = struct {
         if (mapper.save_config_action.detect(&channels)) |store_request| {
             if (store_request) {
                 log.info("config save requested", .{});
-                persistent.msg_save.publish({});
+                storage.msg_save.publish({});
             }
         }
 
@@ -269,8 +273,28 @@ test "ChannelCondition.get" {
     const ch_off = Channels.init(.aetr1234, &raw_off);
     const ch_on = Channels.init(.aetr1234, &raw_on);
 
-    // the state doesn't change because it starts as false
-    try testing.expectEqual(false, cond.update(&ch_off));
-    try testing.expectEqual(true, cond.update(&ch_on));
-    try testing.expectEqual(false, cond.update(&ch_off));
+    try testing.expectEqual(false, cond.get(&ch_off));
+    try testing.expectEqual(true, cond.get(&ch_on));
+    try testing.expectEqual(false, cond.get(&ch_off));
+}
+
+test "ChannelDetector.detect" {
+    var detector: ChannelDetector = .{ .cond = .{
+        .ident = .{ .index = 4 },
+        .range = .{ .start = 1700, .end = 2000 },
+    } };
+    const raw_off: [16]u16 = @splat(1500);
+    const raw_on: [16]u16 = blk: {
+        var r: [16]u16 = @splat(1500);
+        r[4] = 1800;
+        break :blk r;
+    };
+    const ch_off = Channels.init(.aetr1234, &raw_off);
+    const ch_on = Channels.init(.aetr1234, &raw_on);
+
+    try testing.expectEqual(null, detector.detect(&ch_off));
+    try testing.expectEqual(true, detector.detect(&ch_on));
+    try testing.expectEqual(null, detector.detect(&ch_on));
+    try testing.expectEqual(false, detector.detect(&ch_off));
+    try testing.expectEqual(null, detector.detect(&ch_off));
 }

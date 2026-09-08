@@ -5,7 +5,7 @@ const alignForward = std.mem.alignForward;
 const alignBackward = std.mem.alignBackward;
 const isAligned = std.mem.isAlignedGeneric;
 
-const log = std.log.scoped(.storage);
+const log = std.log.scoped(.drivers_storage);
 
 // TODO: error sets
 // TODO: caching

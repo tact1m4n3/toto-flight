@@ -9,10 +9,12 @@ const control = @import("../control.zig");
 const hw = @import("../hw.zig");
 const imu = @import("../imu.zig");
 const receiver = @import("../receiver.zig");
-const persistent = @import("../persistent.zig");
+const storage = @import("../storage.zig");
 const Scheduler = @import("../Scheduler.zig");
 const Message = Scheduler.Message;
+const Receiver = Scheduler.Receiver;
 const Task = Scheduler.Task;
+const Waker = Scheduler.Waker;
 const time = @import("../time.zig");
 const Duration = time.Duration;
 const Absolute = time.Absolute;
@@ -20,7 +22,11 @@ const RingBuffer = @import("../utils/ring_buffer.zig").RingBuffer;
 
 const log = std.log.scoped(.chip_rp2350);
 
+// TODO: maybe ticker and periodics can be merged into one enum, tasks
+// subscribe to the corresponding ticker
+
 pub const interrupts: microzig.InterruptOptions = .{
+    .TIMER0_IRQ_0 = .{ .c = TIMER0_IRQ_0 },
     .IO_IRQ_BANK0 = .{ .c = IO_IRQ_BANK0 },
     .UART0_IRQ = UART0_IRQ,
     .UART1_IRQ = UART1_IRQ,
@@ -30,8 +36,8 @@ pub const interrupts: microzig.InterruptOptions = .{
     .SPAREIRQ_IRQ_3 = .{ .c = SPAREIRQ_IRQ_3 },
 };
 
-var task_store: persistent.StoreGeneric(.{
-    .imu = &imu.msg_params,
+var task_storage: storage.StorageGeneric(.{
+    .imu = &imu.param_table,
 }) = undefined;
 
 var task_imu: imu.Imu = undefined;
@@ -49,6 +55,14 @@ pub fn main() noreturn {
     log.info("booting", .{});
 
     schedulers_init();
+    timer_init();
+
+    // enable flash
+    // if (microzig.config.ram_image) {
+    //     rp2xxx.rom.connect_internal_flash();
+    //     rp2xxx.rom.flash_exit_xip();
+    //     rp2xxx.flash.boot2.flash_enable_xip();
+    // }
 
     InterruptPin.apply_all();
     UART.apply_all();
@@ -56,13 +70,13 @@ pub fn main() noreturn {
 
     log.info("initializing tasks", .{});
 
-    task_store.init(&scheduler_low_priority);
+    // task_storage.init(&scheduler_low_priority);
 
     task_imu.init(&scheduler_realtime_priority);
     task_rx.init(&scheduler_high_priority);
     task_channel_mapper.init(&scheduler_high_priority);
 
-    // task_control.init(&scheduler_realtime_priority);
+    task_control.init(&scheduler_realtime_priority);
 
     microzig.cpu.interrupt.enable_interrupts();
 
@@ -75,11 +89,11 @@ pub fn main() noreturn {
 
 const RTT = microzig.cpu.rtt.RTT(.{});
 var rtt_logger: ?RTT.Writer = null;
-var rtt_writer_buf: [128]u8 = undefined;
+var rtt_writer_buf: [256]u8 = undefined;
 
 pub fn log_fn(
     comptime level: std.log.Level,
-    comptime scope: @TypeOf(.enum_literal),
+    comptime scope: @EnumLiteral(),
     comptime format: []const u8,
     args: anytype,
 ) void {
@@ -173,10 +187,87 @@ fn SPAREIRQ_IRQ_3() callconv(.c) void {
     scheduler_low_priority.run();
 }
 
+const timer = rp2xxx.system_timer.num(0);
+const timer_period_us: u32 = 1_000;
+var timer_next_tick: u32 = 0;
+
+pub fn timer_init() void {
+    timer.set_interrupt_enabled(.alarm0, true);
+    timer_next_tick = timer.read_low() +% timer_period_us;
+    timer.schedule_alarm(.alarm0, timer_next_tick);
+    microzig.cpu.interrupt.enable(.TIMER0_IRQ_0);
+}
+
+// NOTE: this timer is already setup by the rp2xxx hal to tick every 1us
+// TODO: this could be implemented better I think
+pub fn TIMER0_IRQ_0() linksection(".ram_text") callconv(.c) void {
+    while (true) {
+        timer.clear_interrupt(.alarm0);
+        timer_next_tick +%= timer_period_us;
+        timer.schedule_alarm(.alarm0, timer_next_tick);
+
+        const diff: i32 = @bitCast(timer.read_low() -% timer_next_tick);
+        if (diff < 0) {
+            break;
+        } else {
+            log.warn("missed tick!", .{});
+        }
+
+        timer.stop_alarm(.alarm0);
+    }
+
+    Ticker.tick_all();
+}
+
+pub const Ticker = enum(u32) {
+    @"10Hz" = 10,
+    @"50Hz" = 50,
+    @"100Hz" = 100,
+    @"250Hz" = 250,
+    @"500Hz" = 500,
+    @"1000Hz" = 1000,
+
+    const State = struct {
+        last_tick: time.Absolute = .from_us(0),
+        message: Message(Absolute) = .{},
+    };
+
+    var states: std.EnumArray(Ticker, State) = .initFill(.{});
+
+    fn tick_all() void {
+        const now = get_time_since_boot();
+        inline for (std.enums.values(Ticker)) |ticker| {
+            var state = states.getPtr(ticker);
+            const ticks: u8 = comptime timer_period_us / @backingInt(ticker) - 1;
+            if (now.diff(state.last_tick).to_ms() >= ticks) {
+                state.last_tick = now;
+                state.message.publish(now);
+            }
+        }
+    }
+
+    pub fn get_period(ticker: Ticker) Duration {
+        return .from_hz(@backingInt(ticker));
+    }
+
+    pub fn subscribe(
+        ticker: Ticker,
+        rcv: *Receiver(Absolute),
+        Context: type,
+        context: Context,
+        comptime callback: fn (context: Context, absolute: Absolute) void,
+        scheduler: *Scheduler,
+    ) void {
+        states.getPtr(ticker).message.subscribe(rcv, Context, context, callback, scheduler);
+    }
+};
+
 pub const InterruptPin = enum(u6) {
     imu = @backingInt(hw.def.imu.pin_interrupt),
 
-    pub fn apply_all() void {
+    var message_map: std.EnumArray(InterruptPin, Message(Absolute)) = .initFill(.{});
+
+    fn apply_all() void {
         inline for (std.enums.values(InterruptPin)) |interrupt_pin| {
             const pin: rp2xxx.gpio.Pin = @fromBackingInt(@intCast(@backingInt(interrupt_pin)));
             pin.set_function(.sio);
@@ -190,28 +281,23 @@ pub const InterruptPin = enum(u6) {
 
     pub fn subscribe(
         pin: InterruptPin,
+        rcv: *Receiver(Absolute),
         Context: type,
         context: Context,
-        comptime callback: fn (context: Context) void,
+        comptime callback: fn (Context, Absolute) void,
         scheduler: *Scheduler,
     ) void {
-        const task = interrupt_pin_task_map.getPtr(pin);
-        task.init_late(Context, context, struct {
-            pub fn wrapper(ctx: Context, _: *Task) void {
-                callback(ctx);
-            }
-        }.wrapper, scheduler);
+        message_map.getPtr(pin).subscribe(rcv, Context, context, callback, scheduler);
     }
 };
 
-var interrupt_pin_task_map: std.EnumArray(InterruptPin, Task) = .initFill(.uninitialized);
-
 fn IO_IRQ_BANK0() linksection(".ram_text") callconv(.c) void {
+    const ts = get_time_since_boot();
     var it: rp2xxx.gpio.IrqEventIter = .{};
     while (it.next()) |trigger| {
         if (trigger.events.rise == 1) {
             if (std.enums.fromInt(InterruptPin, @backingInt(trigger.pin))) |pin| {
-                interrupt_pin_task_map.getPtr(pin).ready();
+                InterruptPin.message_map.getPtr(pin).publish(ts);
             }
         }
     }
@@ -277,9 +363,9 @@ pub const UART_RX = struct {
 
     pub const receiver: UART_RX = .{ .inner = .receiver };
 
-    /// Thread safe. Idempotent.
     pub fn subscribe(
         uart_rx: UART_RX,
+        task: *Task,
         Context: type,
         context: Context,
         comptime callback: fn (Context, u8) void,
@@ -287,6 +373,7 @@ pub const UART_RX = struct {
     ) void {
         switch (uart_rx.inner) {
             inline else => |uart_comptime| uart_comptime.get_state().subscribe(
+                task,
                 Context,
                 context,
                 callback,
@@ -303,7 +390,7 @@ pub fn UART_State(cfg: UART_Config) type {
         const RxError = rp2xxx.uart.ReceiveError;
         tx_ring_buf: RingBuffer(u8, cfg.buf_size_tx) = .{},
         rx_ring_buf: RingBuffer(u8, cfg.buf_size_rx) = .{},
-        rx_task: Task = .uninitialized,
+        rx_waker: Waker = .{},
 
         pub fn apply(_: *Self) void {
             cfg.pin_tx.set_function(.uart);
@@ -339,22 +426,24 @@ pub fn UART_State(cfg: UART_Config) type {
             }
         }
 
-        /// Thread safe. Idempotent.
         pub fn subscribe(
             state: *Self,
+            task: *Task,
             Context: type,
             context: Context,
             comptime callback: fn (Context, u8) void,
             scheduler: *Scheduler,
         ) void {
-            state.rx_task.init_late(Context, context, struct {
-                pub fn wrapper(ctx: Context, task: *Task) void {
-                    const s: *Self = @fieldParentPtr("rx_task", task);
+            task.* = .init(Context, context, struct {
+                pub fn wrapper(ctx: Context, _: *Task) void {
+                    const uart = comptime UART.from_instance(cfg.instance).?;
+                    const s = uart.get_state();
                     while (s.rx_ring_buf.pop()) |byte| {
                         callback(ctx, byte);
                     }
                 }
             }.wrapper, scheduler);
+            state.rx_waker.register(task);
         }
 
         pub fn write_byte(state: *Self, byte: u8) !void {
@@ -367,8 +456,8 @@ pub fn UART_State(cfg: UART_Config) type {
                 .uart => |uart| {
                     var read_flag: bool = false;
                     while (true) {
-                        const maybe_byte = uart.read_word() catch {
-                            // log.warn("uart: failed to read byte: {t}", .{err});
+                        const maybe_byte = uart.read_word() catch |err| {
+                            log.warn("uart: failed to read byte: {t}", .{err});
                             uart.clear_errors();
                             continue;
                         };
@@ -380,7 +469,7 @@ pub fn UART_State(cfg: UART_Config) type {
                             break;
                         }
                     }
-                    if (read_flag) state.rx_task.ready();
+                    if (read_flag) state.rx_waker.wake();
 
                     while (uart.is_writeable()) {
                         if (state.tx_ring_buf.pop()) |byte| {
@@ -414,11 +503,11 @@ else
 
 pub var clock: Clock = .{};
 pub const Clock = struct {
-    pub fn sleep_ms(_: Clock, ms: u32) void {
+    pub fn sleep_ms(_: *Clock, ms: u32) void {
         rp2xxx.time.sleep_ms(ms);
     }
 
-    pub fn sleep_us(_: Clock, us: u64) void {
+    pub fn sleep_us(_: *Clock, us: u64) void {
         rp2xxx.time.sleep_us(us);
     }
 };
