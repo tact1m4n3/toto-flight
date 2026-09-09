@@ -58,11 +58,11 @@ pub fn main() noreturn {
     timer_init();
 
     // enable flash
-    // if (microzig.config.ram_image) {
-    //     rp2xxx.rom.connect_internal_flash();
-    //     rp2xxx.rom.flash_exit_xip();
-    //     rp2xxx.flash.boot2.flash_enable_xip();
-    // }
+    if (microzig.config.ram_image) {
+        rp2xxx.rom.connect_internal_flash();
+        rp2xxx.rom.flash_exit_xip();
+        rp2xxx.flash.boot2.flash_enable_xip();
+    }
 
     InterruptPin.apply_all();
     UART.apply_all();
@@ -70,7 +70,7 @@ pub fn main() noreturn {
 
     log.info("initializing tasks", .{});
 
-    // task_storage.init(&scheduler_low_priority);
+    task_storage.init(&scheduler_low_priority);
 
     task_imu.init(&scheduler_realtime_priority);
     task_rx.init(&scheduler_high_priority);
@@ -212,8 +212,6 @@ pub fn TIMER0_IRQ_0() linksection(".ram_text") callconv(.c) void {
         } else {
             log.warn("missed tick!", .{});
         }
-
-        timer.stop_alarm(.alarm0);
     }
 
     Ticker.tick_all();
@@ -238,7 +236,7 @@ pub const Ticker = enum(u32) {
         const now = get_time_since_boot();
         inline for (std.enums.values(Ticker)) |ticker| {
             var state = states.getPtr(ticker);
-            const ticks: u8 = comptime timer_period_us / @backingInt(ticker) - 1;
+            const ticks: u8 = comptime timer_period_us / @backingInt(ticker);
             if (now.diff(state.last_tick).to_ms() >= ticks) {
                 state.last_tick = now;
                 state.message.publish(now);
@@ -403,14 +401,14 @@ pub fn UART_State(cfg: UART_Config) type {
                         .baud_rate = cfg.baud_rate,
                     });
 
-                    uart.set_interrupts_enabled(.{
-                        .rx = true,
-                        .tx = true,
-                        .fe = true,
-                        .pe = true,
-                        .be = true,
-                        .oe = true,
+                    uart.get_regs().UARTIFLS.write(.{ .RXIFLSEL = 0, .TXIFLSEL = 0 });
+
+                    uart.get_regs().UARTIMSC.write(.{
+                        .TXIM = 1,
+                        .RXIM = 1,
+                        .RTIM = 1,
                     });
+
                     switch (uart) {
                         .num(0) => {
                             microzig.cpu.interrupt.clear_pending(.UART0_IRQ);
@@ -436,10 +434,18 @@ pub fn UART_State(cfg: UART_Config) type {
         ) void {
             task.* = .init(Context, context, struct {
                 pub fn wrapper(ctx: Context, _: *Task) void {
-                    const uart = comptime UART.from_instance(cfg.instance).?;
-                    const s = uart.get_state();
+                    const uart_enum = comptime UART.from_instance(cfg.instance).?;
+                    const s = uart_enum.get_state();
                     while (s.rx_ring_buf.pop()) |byte| {
                         callback(ctx, byte);
+                    }
+                    // Ring has room again: reopen RX.
+                    switch (cfg.instance) {
+                        .uart => |uart| uart.get_regs().UARTIMSC.write(.{
+                            .TXIM = 1,
+                            .RXIM = 1,
+                            .RTIM = 1,
+                        }),
                     }
                 }
             }.wrapper, scheduler);
@@ -448,13 +454,28 @@ pub fn UART_State(cfg: UART_Config) type {
 
         pub fn write_byte(state: *Self, byte: u8) !void {
             try state.tx_ring_buf.push(byte);
+            switch (cfg.instance) {
+                .uart => |uart| {
+                    switch (uart) {
+                        .num(0) => microzig.cpu.interrupt.set_pending(.UART0_IRQ),
+                        .num(1) => microzig.cpu.interrupt.set_pending(.UART1_IRQ),
+                        _ => @compileError("invalid uart"),
+                    }
+                },
+            }
         }
 
         // Inline because we want it in .ram_text
         pub inline fn on_interrupt(state: *Self) void {
             switch (cfg.instance) {
                 .uart => |uart| {
-                    var read_flag: bool = false;
+                    // TX fires on transition through the level, not the level
+                    // itself. Clear the latched TX edge so an idle empty FIFO
+                    // doesn't re-fire. RX flags are cleared by draining the
+                    // FIFO below.
+                    uart.get_regs().UARTICR.write(.{ .TXIC = 1 });
+
+                    var rx_full = false;
                     while (true) {
                         const maybe_byte = uart.read_word() catch |err| {
                             log.warn("uart: failed to read byte: {t}", .{err});
@@ -462,14 +483,22 @@ pub fn UART_State(cfg: UART_Config) type {
                             continue;
                         };
 
-                        if (maybe_byte) |byte| {
-                            state.rx_ring_buf.push(byte) catch {};
-                            read_flag = true;
-                        } else {
+                        const byte = maybe_byte orelse break;
+
+                        state.rx_ring_buf.push(byte) catch {
+                            rx_full = true;
                             break;
-                        }
+                        };
                     }
-                    if (read_flag) state.rx_waker.wake();
+                    if (!state.rx_ring_buf.is_empty()) state.rx_waker.wake();
+                    if (rx_full) {
+                        // Ring full: mask RX/RT so the still-full HW FIFO
+                        // can't re-fire forever. Task wrapper reopens after
+                        // draining.
+                        uart.get_regs().UARTIMSC.write(.{
+                            .TXIM = 1,
+                        });
+                    }
 
                     while (uart.is_writeable()) {
                         if (state.tx_ring_buf.pop()) |byte| {
@@ -569,8 +598,8 @@ pub const Flash = struct {
         while (remaining_data.len > 0) {
             var buffer: [PAGE_SIZE]u8 = @splat(0xFF);
 
-            const page_offset = offset & ~@as(u32, PAGE_SIZE - 1);
-            const offset_in_page = offset & @as(u32, PAGE_SIZE - 1);
+            const page_offset = current_offset & ~@as(u32, PAGE_SIZE - 1);
+            const offset_in_page = current_offset & @as(u32, PAGE_SIZE - 1);
             const count = @min(remaining_data.len, PAGE_SIZE - offset_in_page);
             std.mem.copyForwards(u8, buffer[offset_in_page..][0..count], remaining_data[0..count]);
 

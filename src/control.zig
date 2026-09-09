@@ -41,7 +41,7 @@ pub const Loop = struct {
             scheduler,
         );
 
-        hw.Ticker.@"10Hz".subscribe(
+        hw.Ticker.@"100Hz".subscribe(
             &loop.rcv_tick_nav,
             *Loop,
             loop,
@@ -58,8 +58,6 @@ pub const Loop = struct {
     fn nav_tick_callback(control: *Loop, ts: time.Absolute) void {
         _ = control; // autofix
         _ = ts; // autofix
-
-        log.info("nav tick!", .{});
 
         // const MIN_COMMAND_PERIOD: time.Duration = .from_hz(5);
         // const FAILSAFE_STAGE1_DURATION: time.Duration = .from_ms(500);

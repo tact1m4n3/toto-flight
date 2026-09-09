@@ -1,6 +1,9 @@
 const std = @import("std");
 
 pub fn RingBuffer(T: type, capacity: usize) type {
+    comptime {
+        std.debug.assert(capacity > 0);
+    }
     return struct {
         const Self = @This();
 
@@ -8,11 +11,15 @@ pub fn RingBuffer(T: type, capacity: usize) type {
         read_pos: std.atomic.Value(usize) = .init(0),
         write_pos: std.atomic.Value(usize) = .init(0),
 
+        pub fn is_empty(self: *Self) bool {
+            return self.read_pos.load(.acquire) == self.write_pos.load(.acquire);
+        }
+
         pub fn push(self: *Self, value: T) error{BufferFull}!void {
             const write_pos = self.write_pos.load(.monotonic);
             const next_write_pos = write_pos +% 1;
 
-            const read_pos = self.read_pos.load(.monotonic);
+            const read_pos = self.read_pos.load(.acquire);
 
             if (next_write_pos -% read_pos > capacity) {
                 return error.BufferFull;
@@ -23,7 +30,7 @@ pub fn RingBuffer(T: type, capacity: usize) type {
         }
 
         pub fn pop(self: *Self) ?T {
-            const write_pos = self.write_pos.load(.monotonic);
+            const write_pos = self.write_pos.load(.acquire);
             const read_pos = self.read_pos.load(.monotonic);
 
             if (write_pos == read_pos) {
@@ -31,7 +38,7 @@ pub fn RingBuffer(T: type, capacity: usize) type {
             }
 
             const value = self.buffer[read_pos % capacity];
-            self.read_pos.store(read_pos + 1, .release);
+            self.read_pos.store(read_pos +% 1, .release);
             return value;
         }
     };

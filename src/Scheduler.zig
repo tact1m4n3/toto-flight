@@ -126,7 +126,6 @@ pub fn Message(T: type) type {
             while (it) |node| : (it = node.next) {
                 const subscriber: *Receiver(T) = @alignCast(@fieldParentPtr("node", node));
                 subscriber.task.ready();
-                it = node.next;
             }
         }
 
@@ -221,7 +220,7 @@ const TransferStack = struct {
     }
 
     pub fn pop_all(self: *TransferStack) ?*Node {
-        return self.first.swap(null, .monotonic);
+        return self.first.swap(null, .acquire);
     }
 };
 
