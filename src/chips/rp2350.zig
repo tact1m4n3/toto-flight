@@ -3,7 +3,6 @@ const assert = std.debug.assert;
 
 const microzig = @import("microzig");
 const rp2xxx = microzig.hal;
-pub const Pin = rp2xxx.gpio.Pin;
 
 const control = @import("../control.zig");
 const hw = @import("../hw.zig");
@@ -68,6 +67,9 @@ pub fn main() noreturn {
     InterruptPin.apply_all();
     UART.apply_all();
     SPI.apply_all();
+
+    motors.apply();
+    servos.apply();
 
     log.info("initializing tasks", .{});
 
@@ -187,6 +189,8 @@ fn SPAREIRQ_IRQ_3() callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_3);
     scheduler_low_priority.run();
 }
+
+pub const Pin = rp2xxx.gpio.Pin;
 
 const timer = rp2xxx.system_timer.num(0);
 const timer_period_us: u32 = 1_000;
@@ -674,8 +678,189 @@ pub const I2C_Config = struct {
     pin_sda: Pin,
     pin_scl: Pin,
 };
-pub const PWM_Config = struct {
-    pwm_slice: rp2xxx.pwm.Slice,
-    pin_a: ?Pin = null,
-    pin_b: ?Pin = null,
+
+// TODO: not quite happy with this config
+pub const MotorConfig = struct {
+    pio: rp2xxx.pio.Pio,
+    sm: rp2xxx.pio.StateMachine,
+    pin: Pin,
+};
+
+pub const motors = struct {
+    pub const count = hw.def.motors.outputs.len;
+
+    fn apply() void {
+        const dshot_speed = switch (hw.def.motors.protocol) {
+            .dshot_300 => 300,
+        };
+
+        const clkdiv = comptime rp2xxx.pio.ClkDivOptions.from_ratio(
+            rp2xxx.clock_config.sys.?.frequency(),
+            dshot_speed * 8_000,
+        );
+
+        var offsets: std.EnumArray(rp2xxx.pio.Pio, u5) = .initFill(0);
+        comptime var loaded: std.EnumSet(rp2xxx.pio.Pio) = .empty;
+
+        inline for (hw.def.motors.outputs) |output| {
+            if (comptime !loaded.contains(output.pio)) {
+                comptime loaded.setPresent(output.pio, true);
+
+                const offset = output.pio.add_program(dshot_program) catch unreachable;
+                offsets.set(output.pio, offset);
+            }
+
+            output.pio.gpio_init(output.pin);
+            const offset = offsets.get(output.pio);
+            output.pio.sm_init(output.sm, offset, .{
+                .clkdiv = clkdiv,
+                .pin_mappings = .{ .set = .single(output.pin) },
+                .exec = .{
+                    .wrap_target = offset,
+                    .wrap = offset + @as(u5, dshot_program.instructions.len),
+                },
+                .shift = .{ .out_shiftdir = .left },
+            }) catch unreachable;
+            output.pio.sm_exec_set_pindir(output.sm, 1);
+            output.pio.sm_set_enabled(output.sm, true);
+        }
+    }
+
+    /// values are 1000..=2000 us
+    pub fn write(values: *const [count]u16) void {
+        for (hw.def.motors.outputs, values) |output, us| {
+            output.pio.sm_write(output.sm, encode_us(us));
+        }
+    }
+
+    pub fn disarm() void {
+        for (hw.def.motors.outputs) |output| {
+            output.pio.sm_write(output.sm, encode_command(.stop, false));
+        }
+    }
+
+    // ESCs ignore further commands for ~260ms after a beep
+    pub fn beep() void {
+        for (hw.def.motors.outputs) |output| {
+            output.pio.sm_write(output.sm, encode_command(.beep_1, false));
+        }
+    }
+
+    pub fn set_spin_direction(direction: SpinDirection) void {
+        const command: Command = switch (direction) {
+            .normal => .spin_direction_normal,
+            .reversed => .spin_direction_reversed,
+        };
+        // command must be received 6 times
+        for (0..6) |_| {
+            for (hw.def.motors.outputs) |output| {
+                // block so that we ensure commands are sent
+                output.pio.sm_write_blocking(output.sm, encode_command(command, false));
+            }
+        }
+    }
+
+    const dshot_program = blk: {
+        @setEvalBranchQuota(10_000);
+        break :blk rp2xxx.pio.assemble(
+            \\.program dshot
+            \\entry:
+            \\    pull
+            \\    out null, 16
+            \\    set x, 15
+            \\loop:
+            \\    set pins, 1
+            \\    out y, 1
+            \\    jmp !y zero
+            \\    nop [2]
+            \\one:
+            \\    set pins, 0
+            \\    jmp x-- loop
+            \\    jmp reset
+            \\zero:
+            \\    set pins, 0 [3]
+            \\    jmp x-- loop
+            \\    jmp reset
+            \\reset: ; Blank frame
+            \\    nop [31]
+            \\    nop [31]
+            \\    nop [31]
+            \\    jmp entry [31]
+        , .{}).get_program_by_name("dshot");
+    };
+
+    // TODO: should be common to all dshot implementations, move some place else
+    const Command = enum(u16) {
+        stop = 0,
+        beep_1 = 1,
+        beep_2 = 2,
+        beep_3 = 3,
+        beep_4 = 4,
+        beep_5 = 5,
+        spin_direction_normal = 20,
+        spin_direction_reversed = 21,
+        throttle_min = 48,
+    };
+
+    pub const THROTTLE_MIN: u16 = @backingInt(Command.throttle_min);
+    pub const THROTTLE_MAX: u16 = 2047;
+
+    pub const SpinDirection = enum {
+        normal,
+        reversed,
+    };
+
+    fn encode(command: u16, telemetry: bool) u16 {
+        const packet = (command << 1) | @intFromBool(telemetry);
+        const crc = (packet ^ (packet >> 4) ^ (packet >> 8)) & 0x0F;
+        return ((packet & 0xFFF) << 4) | crc;
+    }
+
+    fn encode_command(command: Command, telemetry: bool) u16 {
+        return encode(@backingInt(command), telemetry);
+    }
+
+    // 1000..=2000 us -> THROTTLE_MIN..=THROTTLE_MAX
+    fn encode_us(us: u16) u16 {
+        const delta: u32 = (us -| 1000) & 0x3FF;
+        const throttle: u16 = @intCast((delta * 0x7FF0) >> 14);
+        return encode(throttle + THROTTLE_MIN, false);
+    }
+};
+
+pub const ServoConfig = Pin;
+
+pub const servos = struct {
+    pub const count = hw.def.servos.len;
+
+    fn apply() void {
+        // Make pwm counter increment once every microsecond
+        const div: rp2xxx.pwm.FractionalDivider = comptime .from_ratio(rp2xxx.clock_config.sys.?.frequency(), 1_000_000);
+        // The frequency of the pwm signal is 50Hz.
+        const wrap = 20_000 - 1;
+
+        comptime var is_slice_configured: std.EnumArray(rp2xxx.pwm.Slice, bool) = .initFill(false);
+
+        inline for (hw.def.servos) |pin| {
+            const pwm = comptime rp2xxx.pwm.get_pwm(@backingInt(pin));
+
+            pwm.set_level(1_500);
+
+            const slice = comptime pwm.slice();
+            if (comptime !is_slice_configured.get(slice)) {
+                slice.set_clk_div(div);
+                slice.set_phase_correct(false);
+                slice.set_wrap(wrap);
+                slice.enable();
+                comptime is_slice_configured.set(slice, true);
+            }
+        }
+    }
+
+    pub fn write(values: *const [count]u16) !void {
+        inline for (hw.def.servos, values) |pin, value| {
+            const pwm = comptime rp2xxx.pwm.get_pwm(@backingInt(pin));
+            pwm.set_level(value);
+        }
+    }
 };

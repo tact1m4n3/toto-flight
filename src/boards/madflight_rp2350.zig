@@ -31,12 +31,19 @@ pub const hw_def: hw.Definition = .{
             .buf_size_rx = 128,
         },
     },
-    .motors = &.{
-        .{ .protocol = .dshot_300, .pins = &.{.num(6)} },
+    .motors = .{
+        .protocol = .dshot_300,
+        .outputs = &.{
+            .{
+                .pio = .pio0,
+                .sm = .sm0,
+                .pin = .num(6),
+            },
+        },
     },
     .servos = &.{
-        .{ .pwm_slice = .num(5), .pin_a = .num(11) },
-        .{ .pwm_slice = .num(7), .pin_a = .num(15) },
+        .num(11),
+        .num(15),
     },
     .flash = .{
         .size = FLASH_SIZE,

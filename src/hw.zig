@@ -36,7 +36,11 @@ pub const flash = &chip.flash;
 pub const Flash = chip.Flash;
 
 pub const I2C_Config = chip.I2C_Config;
-pub const PWM_Config = chip.PWM_Config;
+
+pub const MotorConfig = chip.MotorConfig;
+pub const motors = chip.motors;
+pub const ServoConfig = chip.ServoConfig;
+pub const servos = chip.servos;
 
 pub const Definition = struct {
     imu: struct {
@@ -53,13 +57,13 @@ pub const Definition = struct {
         },
         uart: UART_Config,
     },
-    motors: []const struct {
+    motors: struct {
         protocol: enum {
             dshot_300,
         },
-        pins: []const Pin,
+        outputs: []const MotorConfig,
     },
-    servos: []const PWM_Config,
+    servos: []const ServoConfig,
     flash: chip.FlashConfig,
 };
 
