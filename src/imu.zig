@@ -20,7 +20,9 @@ pub var msg_calibrate: Message(void) = .{};
 
 pub const Data = struct {
     ts: time.Absolute,
+    /// rad/s
     gyro: math.Vec3,
+    /// m/s^2
     accel: math.Vec3,
 };
 
@@ -85,11 +87,13 @@ pub const Imu = struct {
         var gyro = raw_data.gyro;
         gyro = .sub(gyro, params.gyro_bias);
         gyro = params._imu_to_body.transform(gyro);
+        gyro = .mul_scalar(gyro, comptime math.radians_from_degrees(1.0));
 
         var accel = raw_data.accel;
         accel = .sub(accel, params.accel_bias);
         accel = .mul(accel, params.accel_scale);
         accel = params._imu_to_body.transform(accel);
+        accel = .mul_scalar(accel, 9.80665);
 
         msg_data.publish(.{
             .ts = ts,

@@ -64,6 +64,10 @@ pub const Duration = enum(u64) {
         return @backingInt(duration) / 1000;
     }
 
+    pub fn to_secs_f32(duration: Duration) f32 {
+        return @as(f32, @floatFromInt(@backingInt(duration))) / 1_000_000.0;
+    }
+
     pub fn less_than(self: Duration, other: Duration) bool {
         return self.to_us() < other.to_us();
     }

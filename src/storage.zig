@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 const hw = @import("hw.zig");
 const control = @import("control.zig");
@@ -6,7 +7,6 @@ const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
 const ParamTable = Scheduler.ParamTable;
-const imu = @import("imu.zig");
 const drivers = @import("drivers.zig");
 
 const log = std.log.scoped(.storage);
@@ -76,7 +76,9 @@ pub fn StorageGeneric(tables: anytype) type {
         fn read_all(storage: *Self) !void {
             inline for (info.field_names) |field_name| {
                 const key = comptime generate_key(field_name);
-                if (try storage.driver.fetch(key, imu.Params)) |params| {
+                const Table = @TypeOf(@field(tables, field_name));
+                const ParamsType = @typeInfo(Table).pointer.child.Type;
+                if (try storage.driver.fetch(key, ParamsType)) |params| {
                     @field(tables, field_name).update(params);
                 }
             }
@@ -87,7 +89,8 @@ pub fn StorageGeneric(tables: anytype) type {
 const key_len = 8;
 const Key = [key_len]u8;
 
-fn generate_key(name: []const u8) Key {
+fn generate_key(comptime name: []const u8) Key {
+    comptime assert(name.len <= key_len);
     var key: Key = @splat(0);
     std.mem.copyForwards(u8, key[0..name.len], name);
     return key;

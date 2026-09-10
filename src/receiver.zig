@@ -96,8 +96,8 @@ pub const ChannelMapper = struct {
     }
 
     fn channels_callback(mapper: *ChannelMapper, channels: Channels) void {
-        const RATE_MODE_MULT = math.degrees_to_radians(50.0);
-        const ANGLE_MODE_MULT = math.degrees_to_radians(50.0);
+        const RATE_MODE_MULT = math.radians_from_degrees(50.0);
+        const ANGLE_MODE_MULT = math.radians_from_degrees(50.0);
 
         const arm_state = mapper.arm_switch.get(&channels);
         const rate_mode = mapper.rate_mode_enable.get(&channels);
@@ -126,13 +126,13 @@ pub const ChannelMapper = struct {
             if (arm_state)
                 if (angle_mode) .{
                     .angle = .{
-                        .throttle = throttle * ANGLE_MODE_MULT,
+                        .throttle = throttle,
                         .roll = roll * ANGLE_MODE_MULT,
                         .pitch = pitch * ANGLE_MODE_MULT,
                         // .yaw = yaw * ANGLE_MODE_MULT,
                     },
                 } else if (rate_mode) .{ .rate = .{
-                    .throttle = throttle * RATE_MODE_MULT,
+                    .throttle = throttle,
                     .roll = roll * RATE_MODE_MULT,
                     .pitch = pitch * RATE_MODE_MULT,
                     .yaw = yaw * RATE_MODE_MULT,

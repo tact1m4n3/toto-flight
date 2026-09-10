@@ -1,8 +1,8 @@
 const std = @import("std");
 const math = std.math;
 
-pub const radians_to_degrees = math.radiansToDegrees;
-pub const degrees_to_radians = math.degreesToRadians;
+pub const degrees_from_radians = math.radiansToDegrees;
+pub const radians_from_degrees = math.degreesToRadians;
 
 pub const Axis = enum {
     x,

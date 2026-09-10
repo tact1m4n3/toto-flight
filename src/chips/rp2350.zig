@@ -38,6 +38,7 @@ pub const interrupts: microzig.InterruptOptions = .{
 
 var task_storage: storage.StorageGeneric(.{
     .imu = &imu.param_table,
+    .rate = &control.param_table_rate,
 }) = undefined;
 
 var task_imu: imu.Imu = undefined;
@@ -226,20 +227,21 @@ pub const Ticker = enum(u32) {
     @"1000Hz" = 1000,
 
     const State = struct {
-        last_tick: time.Absolute = .from_us(0),
+        next_tick: time.Absolute = .from_us(0),
         message: Message(Absolute) = .{},
     };
 
     var states: std.EnumArray(Ticker, State) = .initFill(.{});
 
-    fn tick_all() void {
+    /// Inline this into the interrupt handler.
+    inline fn tick_all() void {
         const now = get_time_since_boot();
         inline for (std.enums.values(Ticker)) |ticker| {
             var state = states.getPtr(ticker);
-            const ticks: u8 = comptime timer_period_us / @backingInt(ticker);
-            if (now.diff(state.last_tick).to_ms() >= ticks) {
-                state.last_tick = now;
-                state.message.publish(now);
+            while (state.next_tick.is_reached_by(now)) {
+                const ts = state.next_tick;
+                state.message.publish(ts);
+                state.next_tick = ts.add_duration(comptime ticker.get_period());
             }
         }
     }
