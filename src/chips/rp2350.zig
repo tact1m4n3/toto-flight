@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 const microzig = @import("microzig");
 const rp2xxx = microzig.hal;
 
+const actuator = @import("../actuator.zig");
 const control = @import("../control.zig");
 const hw = @import("../hw.zig");
 const imu = @import("../imu.zig");
@@ -46,6 +47,8 @@ var task_channel_mapper: receiver.ChannelMapper = undefined;
 
 var task_control: control.Loop = undefined;
 
+var task_actuator: actuator.Actuator = undefined;
+
 pub fn main() noreturn {
     microzig.cpu.interrupt.disable_interrupts();
 
@@ -57,13 +60,6 @@ pub fn main() noreturn {
     schedulers_init();
     timer_init();
 
-    // enable flash
-    if (microzig.config.ram_image) {
-        rp2xxx.rom.connect_internal_flash();
-        rp2xxx.rom.flash_exit_xip();
-        rp2xxx.flash.boot2.flash_enable_xip();
-    }
-
     InterruptPin.apply_all();
     UART.apply_all();
     SPI.apply_all();
@@ -73,13 +69,14 @@ pub fn main() noreturn {
 
     log.info("initializing tasks", .{});
 
-    task_storage.init(&scheduler_low_priority);
-
     task_imu.init(&scheduler_realtime_priority);
+    task_control.init(&scheduler_realtime_priority);
+    // task_actuator.init(&scheduler_realtime_priority);
+
     task_rx.init(&scheduler_high_priority);
     task_channel_mapper.init(&scheduler_high_priority);
 
-    task_control.init(&scheduler_realtime_priority);
+    task_storage.init(&scheduler_low_priority);
 
     microzig.cpu.interrupt.enable_interrupts();
 
@@ -726,10 +723,11 @@ pub const motors = struct {
         }
     }
 
-    /// values are 1000..=2000 us
-    pub fn write(values: *const [count]u16) void {
-        for (hw.def.motors.outputs, values) |output, us| {
-            output.pio.sm_write(output.sm, encode_us(us));
+    /// values are 0.0..=1.0
+    pub fn write(values: *const [count]f32) void {
+        for (hw.def.motors.outputs, values) |output, value| {
+            std.debug.assert(0.0 <= value and value <= 1.0);
+            output.pio.sm_write(output.sm, encode_throttle(value));
         }
     }
 
@@ -820,11 +818,10 @@ pub const motors = struct {
         return encode(@backingInt(command), telemetry);
     }
 
-    // 1000..=2000 us -> THROTTLE_MIN..=THROTTLE_MAX
-    fn encode_us(us: u16) u16 {
-        const delta: u32 = (us -| 1000) & 0x3FF;
-        const throttle: u16 = @intCast((delta * 0x7FF0) >> 14);
-        return encode(throttle + THROTTLE_MIN, false);
+    // 0.0..=1.0 -> THROTTLE_MIN..=THROTTLE_MAX
+    fn encode_throttle(value: f32) u16 {
+        const throttle: u16 = @round(value * @as(f32, @floatFromInt(THROTTLE_MAX - THROTTLE_MIN)));
+        return encode(THROTTLE_MIN + throttle, false);
     }
 };
 
@@ -857,8 +854,10 @@ pub const servos = struct {
         }
     }
 
-    pub fn write(values: *const [count]u16) !void {
+    /// values are 1000..=2000 us
+    pub fn write(values: *const [count]u16) void {
         inline for (hw.def.servos, values) |pin, value| {
+            std.debug.assert(1000 <= value and value <= 2000);
             const pwm = comptime rp2xxx.pwm.get_pwm(@backingInt(pin));
             pwm.set_level(value);
         }

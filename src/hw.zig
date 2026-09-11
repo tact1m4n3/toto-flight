@@ -39,6 +39,7 @@ pub const I2C_Config = chip.I2C_Config;
 
 pub const MotorConfig = chip.MotorConfig;
 pub const motors = chip.motors;
+
 pub const ServoConfig = chip.ServoConfig;
 pub const servos = chip.servos;
 

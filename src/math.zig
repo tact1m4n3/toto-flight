@@ -74,6 +74,14 @@ pub const Vec3 = extern struct {
         };
     }
 
+    pub fn clamp(v: Vec3, min: f32, max: f32) Vec3 {
+        return .{
+            .x = std.math.clamp(v.x, min, max),
+            .y = std.math.clamp(v.y, min, max),
+            .z = std.math.clamp(v.z, min, max),
+        };
+    }
+
     pub fn negate(v: Vec3) Vec3 {
         return .{ .x = -v.x, .y = -v.y, .z = -v.z };
     }
@@ -88,6 +96,10 @@ pub const Vec3 = extern struct {
 
     pub fn normalize(v: Vec3) Vec3 {
         return v.div_scalar(v.length());
+    }
+
+    pub fn dot(a: Vec3, b: Vec3) f32 {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
     }
 
     pub fn cross(a: Vec3, b: Vec3) Vec3 {

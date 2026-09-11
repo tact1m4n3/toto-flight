@@ -44,6 +44,7 @@ pub const Rx = struct {
                 .rc_channels_packed => |channels_crsf| {
                     var channels_us: [16]u16 = undefined;
                     for (&channels_us, channels_crsf) |*value_us, value_crsf| {
+                        // TODO: clamp value crsf
                         value_us.* = @truncate(@as(u32, value_crsf) * 1024 / 1639 + 881);
                     }
                     log.info("received channels: {any}", .{channels_us});
@@ -62,8 +63,8 @@ pub const ChannelMapper = struct {
     arm_switch: ChannelCondition,
     rate_mode_enable: ChannelCondition,
     angle_mode_enable: ChannelCondition,
-    calibrate_imu_action: ChannelDetector,
-    save_config_action: ChannelDetector,
+    action_calibrate_imu: ChannelDetector,
+    action_save_config: ChannelDetector,
 
     rcv_channels: Receiver(Channels) = undefined,
 
@@ -82,11 +83,11 @@ pub const ChannelMapper = struct {
                 .range = .{ .start = 1800, .end = 2100 },
             },
             // TEMP
-            .calibrate_imu_action = .{ .cond = .{
+            .action_calibrate_imu = .{ .cond = .{
                 .ident = .{ .index = 7 },
                 .range = .{ .start = 1300, .end = 1700 },
             } },
-            .save_config_action = .{ .cond = .{
+            .action_save_config = .{ .cond = .{
                 .ident = .{ .index = 7 },
                 .range = .{ .start = 1800, .end = 2100 },
             } },
@@ -103,14 +104,14 @@ pub const ChannelMapper = struct {
         const rate_mode = mapper.rate_mode_enable.get(&channels);
         const angle_mode = mapper.angle_mode_enable.get(&channels);
 
-        if (mapper.calibrate_imu_action.detect(&channels)) |calibration_request| {
+        if (mapper.action_calibrate_imu.detect(&channels)) |calibration_request| {
             if (calibration_request) {
                 log.info("imu calibration requested", .{});
                 imu.msg_calibrate.publish({});
             }
         }
 
-        if (mapper.save_config_action.detect(&channels)) |store_request| {
+        if (mapper.action_save_config.detect(&channels)) |store_request| {
             if (store_request) {
                 log.info("config save requested", .{});
                 storage.msg_save.publish({});
@@ -127,20 +128,24 @@ pub const ChannelMapper = struct {
                 if (angle_mode) .{
                     .angle = .{
                         .throttle = throttle,
-                        .roll = roll * ANGLE_MODE_MULT,
-                        .pitch = pitch * ANGLE_MODE_MULT,
+                        .angle_roll = roll * ANGLE_MODE_MULT,
+                        .angle_pitch = pitch * ANGLE_MODE_MULT,
                         // .yaw = yaw * ANGLE_MODE_MULT,
                     },
                 } else if (rate_mode) .{ .rate = .{
                     .throttle = throttle,
-                    .roll = roll * RATE_MODE_MULT,
-                    .pitch = pitch * RATE_MODE_MULT,
-                    .yaw = yaw * RATE_MODE_MULT,
+                    .rate = .{
+                        .x = roll * RATE_MODE_MULT,
+                        .y = pitch * RATE_MODE_MULT,
+                        .z = yaw * RATE_MODE_MULT,
+                    },
                 } } else .{ .manual = .{
                     .throttle = throttle,
-                    .roll = roll,
-                    .pitch = pitch,
-                    .yaw = yaw,
+                    .throw = .{
+                        .x = roll,
+                        .y = pitch,
+                        .z = yaw,
+                    },
                 } }
             else
                 .disarm;
@@ -154,11 +159,13 @@ const CHANNEL_MID_VALUE = 1500;
 const CHANNEL_MAX_VALUE = 2000;
 
 fn us_to_neg1_1(us: u16) f32 {
-    return @as(f32, @floatFromInt(us - CHANNEL_MIN_VALUE)) / ((CHANNEL_MAX_VALUE - CHANNEL_MIN_VALUE) / 2.0) - 1.0;
+    const clamped = std.math.clamp(us, CHANNEL_MIN_VALUE, CHANNEL_MAX_VALUE);
+    return @as(f32, @floatFromInt(clamped - CHANNEL_MIN_VALUE)) / ((CHANNEL_MAX_VALUE - CHANNEL_MIN_VALUE) / 2.0) - 1.0;
 }
 
 fn us_to_0_1(us: u16) f32 {
-    return @as(f32, @floatFromInt(us - CHANNEL_MIN_VALUE)) / (CHANNEL_MAX_VALUE - CHANNEL_MIN_VALUE);
+    const clamped = std.math.clamp(us, CHANNEL_MIN_VALUE, CHANNEL_MAX_VALUE);
+    return @as(f32, @floatFromInt(clamped - CHANNEL_MIN_VALUE)) / (CHANNEL_MAX_VALUE - CHANNEL_MIN_VALUE);
 }
 
 pub const ChannelIndex = u4;

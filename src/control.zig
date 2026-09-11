@@ -81,13 +81,16 @@ pub const Loop = struct {
                     continue :loop .{ .rate = rate_command };
                 }
             },
-            .rate => |rate| {
+            .rate => |target| {
                 continue :loop .{
-                    .manual = control.rate_controller.update(params, rate, data.gyro, dt),
+                    .manual = .{
+                        .throttle = target.throttle,
+                        .throw = control.rate_controller.update(params, target.rate, data.gyro, dt),
+                    },
                 };
             },
-            .manual => |actuator_output| {
-                msg_actuator_output.publish(actuator_output);
+            .manual => |target| {
+                msg_actuator_output.publish(target);
             },
             .disarm => {
                 control.rate_controller.reset_i_term();
@@ -151,15 +154,17 @@ pub const Loop = struct {
 
         const command: Command = if (control.arm_state) control.command else .disarm;
         control.rate_command = switch (command) {
-            .angle => |angle| blk: {
-                const attitude: fusion.Attitude = fusion.msg_attitude.get() orelse
+            .angle => |target| blk: {
+                const attitude = fusion.msg_attitude.get() orelse
                     break :blk null;
 
                 break :blk .{
-                    .throttle = angle.throttle,
-                    .roll = (angle.roll - attitude.roll) * ANGLE_ROLL_KP,
-                    .pitch = (angle.pitch - attitude.pitch) * ANGLE_PITCH_KP,
-                    .yaw = 0.0,
+                    .throttle = target.throttle,
+                    .rate = .{
+                        .x = (target.angle_roll - attitude.x) * ANGLE_ROLL_KP,
+                        .y = (target.angle_pitch - attitude.y) * ANGLE_PITCH_KP,
+                        .z = 0.0,
+                    },
                 };
             },
             else => null,
@@ -196,31 +201,28 @@ pub const Command = union(enum) {
     /// rad
     angle: struct {
         throttle: f32,
-        roll: f32,
-        pitch: f32,
+        angle_roll: f32,
+        angle_pitch: f32,
     },
 };
 
 pub const ActuatorOutput = struct {
+    /// 0..=1
     throttle: f32,
-    roll: f32,
-    pitch: f32,
-    yaw: f32,
+    /// -1..=1
+    throw: math.Vec3,
 
     pub const off: ActuatorOutput = .{
         .throttle = 0.0,
-        .roll = 0.0,
-        .pitch = 0.0,
-        .yaw = 0.0,
+        .throw = .zero,
     };
 };
 
 pub const RateCommand = struct {
-    /// rad/s
+    /// 0..=1
     throttle: f32,
-    roll: f32,
-    pitch: f32,
-    yaw: f32,
+    /// rad/s
+    rate: math.Vec3,
 };
 
 pub const RateParams = extern struct {
@@ -243,29 +245,35 @@ pub const RateParams = extern struct {
 
 /// The i term only accumulates while the rate error is small, so a large
 /// tracking error can't wind it up.
-const i_term_max_error: f32 = math.radians_from_degrees(50.0);
-
-pub const AxisRateController = struct {
-    i_term: f32 = 0.0,
-
-    pub fn update(axis: *AxisRateController, gains: RateParams.AxisGains, target_rate: f32, current_rate: f32, dt: f32) f32 {
-        const rate_error = target_rate - current_rate;
-
-        const ff_term = gains.kff * target_rate;
-        const p_term = gains.kp * rate_error;
-
-        if (@abs(rate_error) <= i_term_max_error) {
-            axis.i_term += gains.ki * rate_error * dt;
-        }
-
-        return ff_term + p_term + axis.i_term;
-    }
-};
+const i_term_max_error: f32 = 0.5;
 
 pub const RateController = struct {
-    roll: AxisRateController = .{},
-    pitch: AxisRateController = .{},
-    yaw: AxisRateController = .{},
+    roll: AxisControl = .{},
+    pitch: AxisControl = .{},
+    yaw: AxisControl = .{},
+
+    pub const AxisControl = struct {
+        i_term: f32 = 0.0,
+
+        pub fn update(
+            axis: *AxisControl,
+            gains: RateParams.AxisGains,
+            target_rate: f32,
+            current_rate: f32,
+            dt: f32,
+        ) f32 {
+            const rate_error = target_rate - current_rate;
+
+            const ff_term = gains.kff * target_rate;
+            const p_term = gains.kp * rate_error;
+
+            if (@abs(rate_error) <= i_term_max_error) {
+                axis.i_term += gains.ki * rate_error * dt;
+            }
+
+            return ff_term + p_term + axis.i_term;
+        }
+    };
 
     pub fn reset_i_term(controller: *RateController) void {
         controller.roll.i_term = 0.0;
@@ -273,12 +281,17 @@ pub const RateController = struct {
         controller.yaw.i_term = 0.0;
     }
 
-    pub fn update(controller: *RateController, params: RateParams, target: RateCommand, gyro: math.Vec3, dt: f32) ActuatorOutput {
+    pub fn update(
+        controller: *RateController,
+        params: RateParams,
+        target_rate: math.Vec3,
+        current_rate: math.Vec3,
+        dt: f32,
+    ) math.Vec3 {
         return .{
-            .throttle = target.throttle,
-            .roll = controller.roll.update(params.roll, target.roll, gyro.x, dt),
-            .pitch = controller.pitch.update(params.pitch, target.pitch, gyro.y, dt),
-            .yaw = controller.yaw.update(params.yaw, target.yaw, gyro.z, dt),
+            .x = controller.roll.update(params.roll, target_rate.x, current_rate.x, dt),
+            .y = controller.pitch.update(params.pitch, target_rate.y, current_rate.y, dt),
+            .z = controller.yaw.update(params.yaw, target_rate.z, current_rate.z, dt),
         };
     }
 };
@@ -290,8 +303,8 @@ pub const Status = packed struct {
 
 const testing = std.testing;
 
-test "AxisRateController" {
-    var axis: AxisRateController = .{};
+test "RateController.AxisControl" {
+    var axis: RateController.AxisControl = .{};
     const gains: RateParams.AxisGains = .{ .kff = 1.0, .kp = 2.0, .ki = 0.5 };
 
     const dt: f32 = 0.002;
@@ -306,14 +319,13 @@ test "AxisRateController" {
 test "RateController" {
     var controller: RateController = .{};
     const gyro: math.Vec3 = .{ .x = 0.5, .y = 0.0, .z = 0.0 };
-    const target: RateCommand = .{ .throttle = 0.5, .roll = 1.0, .pitch = 0.0, .yaw = 0.0 };
+    const target: RateCommand = .{ .x = 1.0, .y = 0.0, .z = 0.0 };
 
     const out = controller.update(.default, target, gyro, 0.002);
-    try testing.expectApproxEqAbs(0.5, out.throttle, 1e-6);
     // roll: ff 1*1 + p 1.5*0.5 + i 0.8*0.5*0.002
-    try testing.expectApproxEqAbs(1.0 + 0.75 + 0.8 * 0.5 * 0.002, out.roll, 1e-5);
-    try testing.expectApproxEqAbs(0.0, out.pitch, 1e-6);
-    try testing.expectApproxEqAbs(0.0, out.yaw, 1e-6);
+    try testing.expectApproxEqAbs(1.0 + 0.75 + 0.8 * 0.5 * 0.002, out.x, 1e-5);
+    try testing.expectApproxEqAbs(0.0, out.y, 1e-6);
+    try testing.expectApproxEqAbs(0.0, out.z, 1e-6);
 
     controller.reset_i_term();
     try testing.expectEqual(@as(f32, 0.0), controller.roll.i_term);
