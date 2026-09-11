@@ -12,6 +12,7 @@ const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
 const Task = Scheduler.Task;
+const CRSF_Parser = @import("parsers/CRSF.zig");
 
 const log = std.log.scoped(.receiver);
 
@@ -20,7 +21,7 @@ pub var msg_command: Message(control.Command) = .{};
 
 pub const Rx = struct {
     parser: switch (hw.def.receiver.protocol) {
-        .crsf => @import("parsers/CRSF.zig"),
+        .crsf => CRSF_Parser,
     } = .{},
 
     task: Task = undefined,
@@ -44,15 +45,16 @@ pub const Rx = struct {
                 .rc_channels_packed => |channels_crsf| {
                     var channels_us: [16]u16 = undefined;
                     for (&channels_us, channels_crsf) |*value_us, value_crsf| {
-                        // TODO: clamp value crsf
+                        // NOTE: can't overflow: 2 ^ 11 * 2 ^ 10 < 2 ^ 32
                         value_us.* = @truncate(@as(u32, value_crsf) * 1024 / 1639 + 881);
                     }
-                    log.info("received channels: {any}", .{channels_us});
+                    // log.info("received channels: {any}", .{channels_us});
                     const channels: Channels = .init(.aetr1234, &channels_us);
                     msg_channels.publish(channels);
                 },
                 .link_statistics => |ls| {
-                    log.info("received link stats: {any}", .{ls});
+                    _ = ls;
+                    // log.info("received link stats: {any}", .{ls});
                 },
             }
         }
@@ -83,14 +85,20 @@ pub const ChannelMapper = struct {
                 .range = .{ .start = 1800, .end = 2100 },
             },
             // TEMP
-            .action_calibrate_imu = .{ .cond = .{
-                .ident = .{ .index = 7 },
-                .range = .{ .start = 1300, .end = 1700 },
-            } },
-            .action_save_config = .{ .cond = .{
-                .ident = .{ .index = 7 },
-                .range = .{ .start = 1800, .end = 2100 },
-            } },
+            .action_calibrate_imu = .{
+                .cond = .{
+                    .ident = .{ .index = 7 },
+                    .range = .{ .start = 1300, .end = 1700 },
+                },
+                .debounce = 10,
+            },
+            .action_save_config = .{
+                .cond = .{
+                    .ident = .{ .index = 7 },
+                    .range = .{ .start = 1800, .end = 2100 },
+                },
+                .debounce = 10,
+            },
         };
 
         msg_channels.subscribe(&mapper.rcv_channels, *ChannelMapper, mapper, channels_callback, scheduler);
@@ -107,14 +115,14 @@ pub const ChannelMapper = struct {
         if (mapper.action_calibrate_imu.detect(&channels)) |calibration_request| {
             if (calibration_request) {
                 log.info("imu calibration requested", .{});
-                imu.msg_calibrate.publish({});
+                // imu.msg_calibrate.publish({});
             }
         }
 
         if (mapper.action_save_config.detect(&channels)) |store_request| {
             if (store_request) {
                 log.info("config save requested", .{});
-                storage.msg_save.publish({});
+                // storage.msg_save.publish({});
             }
         }
 
@@ -226,13 +234,24 @@ const ChannelCondition = struct {
 
 const ChannelDetector = struct {
     cond: ChannelCondition,
+    debounce: u16 = 0,
     state: bool = false,
+
+    debounce_remaining: ?u16 = null,
 
     pub fn detect(detector: *ChannelDetector, channels: *const Channels) ?bool {
         const new_state = detector.cond.get(channels);
         if (detector.state != new_state) {
+            detector.debounce_remaining = detector.debounce;
             detector.state = new_state;
-            return new_state;
+        }
+        if (detector.debounce_remaining) |*debounce_remaining| {
+            if (debounce_remaining.* == 0) {
+                detector.debounce_remaining = null;
+                return detector.state;
+            } else {
+                debounce_remaining.* -= 1;
+            }
         }
         return null;
     }
@@ -304,4 +323,11 @@ test "ChannelDetector.detect" {
     try testing.expectEqual(null, detector.detect(&ch_on));
     try testing.expectEqual(false, detector.detect(&ch_off));
     try testing.expectEqual(null, detector.detect(&ch_off));
+
+    detector.debounce = 4;
+    try testing.expectEqual(null, detector.detect(&ch_on));
+    try testing.expectEqual(null, detector.detect(&ch_on));
+    try testing.expectEqual(null, detector.detect(&ch_on));
+    try testing.expectEqual(null, detector.detect(&ch_on));
+    try testing.expectEqual(true, detector.detect(&ch_on));
 }

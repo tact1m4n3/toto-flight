@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const microzig = @import("microzig");
+const cpu = microzig.cpu;
 const rp2xxx = microzig.hal;
 
 const actuator = @import("../actuator.zig");
@@ -49,6 +50,8 @@ var task_control: control.Loop = undefined;
 
 var task_actuator: actuator.Actuator = undefined;
 
+var task_cpu_usage: CPU_Usage = undefined;
+
 pub fn main() noreturn {
     microzig.cpu.interrupt.disable_interrupts();
 
@@ -71,19 +74,21 @@ pub fn main() noreturn {
 
     task_imu.init(&scheduler_realtime_priority);
     task_control.init(&scheduler_realtime_priority);
-    // task_actuator.init(&scheduler_realtime_priority);
+    task_actuator.init(&scheduler_realtime_priority);
 
     task_rx.init(&scheduler_high_priority);
     task_channel_mapper.init(&scheduler_high_priority);
 
     task_storage.init(&scheduler_low_priority);
 
+    task_cpu_usage.init(&scheduler_realtime_priority);
+
     microzig.cpu.interrupt.enable_interrupts();
 
     log.info("initialization done", .{});
 
     while (true) {
-        microzig.cpu.wfi();
+        task_cpu_usage.on_idle();
     }
 }
 
@@ -167,22 +172,22 @@ fn scheduler_pend_fn(comptime interrupt: microzig.cpu.ExternalInterrupt) fn () v
     }.pend_fn;
 }
 
-fn SPAREIRQ_IRQ_0() callconv(.c) void {
+fn SPAREIRQ_IRQ_0() linksection(".ram_text") callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_0);
     scheduler_realtime_priority.run();
 }
 
-fn SPAREIRQ_IRQ_1() callconv(.c) void {
+fn SPAREIRQ_IRQ_1() linksection(".ram_text") callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_1);
     scheduler_high_priority.run();
 }
 
-fn SPAREIRQ_IRQ_2() callconv(.c) void {
+fn SPAREIRQ_IRQ_2() linksection(".ram_text") callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_2);
     scheduler_mid_priority.run();
 }
 
-fn SPAREIRQ_IRQ_3() callconv(.c) void {
+fn SPAREIRQ_IRQ_3() linksection(".ram_text") callconv(.c) void {
     microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_3);
     scheduler_low_priority.run();
 }
@@ -220,6 +225,7 @@ pub fn TIMER0_IRQ_0() linksection(".ram_text") callconv(.c) void {
 }
 
 pub const Ticker = enum(u32) {
+    @"1Hz" = 1,
     @"10Hz" = 10,
     @"50Hz" = 50,
     @"100Hz" = 100,
@@ -388,7 +394,6 @@ pub fn UART_State(cfg: UART_Config) type {
     return struct {
         const Self = @This();
 
-        const RxError = rp2xxx.uart.ReceiveError;
         tx_ring_buf: RingBuffer(u8, cfg.buf_size_tx) = .{},
         rx_ring_buf: RingBuffer(u8, cfg.buf_size_rx) = .{},
         rx_waker: Waker = .{},
@@ -406,10 +411,14 @@ pub fn UART_State(cfg: UART_Config) type {
 
                     uart.get_regs().UARTIFLS.write(.{ .RXIFLSEL = 0, .TXIFLSEL = 0 });
 
-                    uart.get_regs().UARTIMSC.write(.{
-                        .TXIM = 1,
-                        .RXIM = 1,
-                        .RTIM = 1,
+                    uart.set_interrupts_enabled(.{
+                        .rx = true,
+                        .tx = true,
+                        .rt = true,
+                        .fe = true,
+                        .pe = true,
+                        .be = true,
+                        .oe = true,
                     });
 
                     switch (uart) {
@@ -442,14 +451,6 @@ pub fn UART_State(cfg: UART_Config) type {
                     while (s.rx_ring_buf.pop()) |byte| {
                         callback(ctx, byte);
                     }
-                    // Ring has room again: reopen RX.
-                    switch (cfg.instance) {
-                        .uart => |uart| uart.get_regs().UARTIMSC.write(.{
-                            .TXIM = 1,
-                            .RXIM = 1,
-                            .RTIM = 1,
-                        }),
-                    }
                 }
             }.wrapper, scheduler);
             state.rx_waker.register(task);
@@ -478,7 +479,6 @@ pub fn UART_State(cfg: UART_Config) type {
                     // FIFO below.
                     uart.get_regs().UARTICR.write(.{ .TXIC = 1 });
 
-                    var rx_full = false;
                     while (true) {
                         const maybe_byte = uart.read_word() catch |err| {
                             log.warn("uart: failed to read byte: {t}", .{err});
@@ -488,20 +488,9 @@ pub fn UART_State(cfg: UART_Config) type {
 
                         const byte = maybe_byte orelse break;
 
-                        state.rx_ring_buf.push(byte) catch {
-                            rx_full = true;
-                            break;
-                        };
+                        state.rx_ring_buf.push(byte) catch {};
                     }
                     if (!state.rx_ring_buf.is_empty()) state.rx_waker.wake();
-                    if (rx_full) {
-                        // Ring full: mask RX/RT so the still-full HW FIFO
-                        // can't re-fire forever. Task wrapper reopens after
-                        // draining.
-                        uart.get_regs().UARTIMSC.write(.{
-                            .TXIM = 1,
-                        });
-                    }
 
                     while (uart.is_writeable()) {
                         if (state.tx_ring_buf.pop()) |byte| {
@@ -851,6 +840,8 @@ pub const servos = struct {
                 slice.enable();
                 comptime is_slice_configured.set(slice, true);
             }
+
+            pin.set_function(.pwm);
         }
     }
 
@@ -861,5 +852,65 @@ pub const servos = struct {
             const pwm = comptime rp2xxx.pwm.get_pwm(@backingInt(pin));
             pwm.set_level(value);
         }
+    }
+};
+
+pub const CPU_Usage = struct {
+    last_tick_ticks: u32,
+    idle_ticks: u32,
+    rcv_tick: Receiver(Absolute) = undefined,
+
+    pub fn init(cpu_usage: *CPU_Usage, scheduler: *Scheduler) void {
+        cpu_usage.* = .{
+            .last_tick_ticks = 0,
+            .idle_ticks = 0,
+        };
+
+        // Enable trace
+        cpu.peripherals.dcb.DEMCR.modify(.{ .TRCENA = 1 });
+
+        // Reset counters
+        cpu.peripherals.dwt.CYCCNT = 0;
+        cpu.peripherals.dwt.EXCCNT = 0;
+
+        // Enable cycle counter
+        cpu.peripherals.dwt.CTRL.modify(.{ .CYCCNTENA = 1 });
+
+        // Set SEVONPEND flag so that interrupts set the event flag even inside
+        // a critical section.
+        cpu.peripherals.scb.SCR.modify(.{ .SEVONPEND = 1 });
+
+        Ticker.@"1Hz".subscribe(&cpu_usage.rcv_tick, *CPU_Usage, cpu_usage, tick_callback, scheduler);
+    }
+
+    fn tick_callback(cpu_usage: *CPU_Usage, _: time.Absolute) void {
+        const ticks_now = cpu.peripherals.dwt.CYCCNT;
+        const tick_diff = ticks_now -% cpu_usage.last_tick_ticks;
+
+        if (tick_diff != 0) {
+            const idle_u64: u64 = cpu_usage.idle_ticks;
+            const diff_u64: u64 = tick_diff;
+
+            const idle_percent = (idle_u64 * 100) / diff_u64;
+            const usage_percent = @as(u64, 100) -| idle_percent;
+
+            log.info("cpu usage: {d}%", .{usage_percent});
+        }
+
+        // NOTE: No need for a cs. This function is called from the highest
+        // priority accessing these fields.
+        cpu_usage.last_tick_ticks = ticks_now;
+        cpu_usage.idle_ticks = 0;
+    }
+
+    /// Must only be called from a thread context.
+    pub fn on_idle(cpu_usage: *CPU_Usage) void {
+        const cs = enter_critical_section();
+        defer cs.leave();
+
+        const before = cpu.peripherals.dwt.CYCCNT;
+        cpu.wfe();
+        const after = cpu.peripherals.dwt.CYCCNT;
+        cpu_usage.idle_ticks +%= (after -% before);
     }
 };

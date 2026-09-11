@@ -86,6 +86,7 @@ pub fn build(b: *std.Build) void {
 
             const zprobe_load_run = load(b, fw.get_emitted_elf());
             const run_step = b.step("run", "Run firmware");
+            run_step.dependOn(&mb.add_install_firmware(fw, .{ .format = .elf }).step);
             run_step.dependOn(zprobe_load_run);
         },
     }

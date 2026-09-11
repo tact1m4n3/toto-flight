@@ -31,7 +31,7 @@ pub const Actuator = struct {
         if (output.throttle > 0.0) {
             var values_motor: [hw.motors.count]f32 = undefined;
             for (&values_motor, &params.mtr) |*value_ptr, *params_motor| {
-                const mix = params_motor.mix.clamp(0.0, 1.0);
+                const mix = params_motor.mix.clamp(-1.0, 1.0);
 
                 const mixed = math.Vec3.dot(mix, output.throw);
                 const mixed_clamped = std.math.clamp(mixed, 0.0, 1.0);
@@ -44,7 +44,7 @@ pub const Actuator = struct {
 
         var values_servo: [hw.servos.count]u16 = undefined;
         for (&values_servo, &params.srv) |*value_ptr, *params_servo| {
-            const mix = params_servo.mix.clamp(0.0, 1.0);
+            const mix = params_servo.mix.clamp(-1.0, 1.0);
             const mid = std.math.clamp(params_servo.mid, 1000, 2000);
             const thr = @min(params_servo.thr, mid);
 

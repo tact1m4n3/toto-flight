@@ -63,8 +63,8 @@ pub const Task = struct {
     pub fn ready(task: *Task) void {
         if (task.state.swap(.ready, .acquire) == .idle) {
             task.scheduler.ready_tasks.push(&task.node);
-            task.scheduler.pend_fn();
         }
+        task.scheduler.pend_fn();
     }
 
     fn init_callback(

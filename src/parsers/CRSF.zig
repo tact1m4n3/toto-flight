@@ -199,7 +199,7 @@ fn test_parse_packet(expected: Packet, data: []const u8) !void {
 
 test "rc_channels_packed" {
     const data: []const u8 = &.{
-        SYNC, 0x18, @intFromEnum(PacketType.rc_channels_packed),
+        SYNC, 0x18, @backingInt(PacketType.rc_channels_packed),
         0x00, 0x00, 0x00,
         0x00, 0x00, 0x00,
         0x00, 0x00, 0x00,
@@ -214,7 +214,7 @@ test "rc_channels_packed" {
 
 test "link_statistics" {
     const data: []const u8 = &.{
-        SYNC, 0x0c, @intFromEnum(PacketType.link_statistics),
+        SYNC, 0x0c, @backingInt(PacketType.link_statistics),
         100,  100,  100,
         0,    0,    2,
         1,    100,  100,

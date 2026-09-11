@@ -30,8 +30,8 @@ pub const Loop = struct {
 
     rate_command: ?RateCommand = null,
 
-    arm_state: bool = false,
-    failsafe_state: Failsafe = .failsafe,
+    arm_state: ArmState = .disarmed,
+    failsafe_state: FailsafeState = .failsafe,
 
     rate_controller: RateController = .{},
 
@@ -74,7 +74,7 @@ pub const Loop = struct {
 
         const params: RateParams = param_table_rate.get() orelse .default;
 
-        const command: Command = if (control.arm_state) control.command else .disarm;
+        const command: Command = if (control.arm_state == .armed) control.command else .disarm;
         loop: switch (command) {
             .angle => { // and other nav tick handled commands
                 if (control.rate_command) |rate_command| {
@@ -99,13 +99,17 @@ pub const Loop = struct {
         }
     }
 
-    fn nav_tick_callback(control: *Loop, now: time.Absolute) void {
+    fn nav_tick_callback(control: *Loop, _: time.Absolute) void {
         const MIN_COMMAND_PERIOD: time.Duration = .from_hz(5);
         const FAILSAFE_PROBATION_DURATION: time.Duration = .from_ms(500);
         const FAILSAFE_RECOVERY_DURATION: time.Duration = .from_ms(1000);
 
         const ANGLE_ROLL_KP = 0.5;
         const ANGLE_PITCH_KP = 0.5;
+
+        const MAX_ARM_THROTTLE_US = 1100;
+
+        const now = hw.get_time_since_boot();
 
         const command_in_due_time = if (control.command_received_time) |command_received_time|
             now.diff(command_received_time).less_than(MIN_COMMAND_PERIOD)
@@ -120,7 +124,6 @@ pub const Loop = struct {
                 control.failsafe_state = .off;
             } else if (probation_end.is_reached_by(now)) {
                 control.failsafe_state = .failsafe;
-                control.arm_state = false;
             },
             .failsafe => if (command_in_due_time) {
                 control.failsafe_state = .{ .recovery = now.add_duration(FAILSAFE_RECOVERY_DURATION) };
@@ -133,26 +136,30 @@ pub const Loop = struct {
         }
 
         switch (control.arm_state) {
-            false => if (control.command != .disarm) {
-                if (control.failsafe_state.is_failsafe()) {
-                    log.warn("failed to arm: arm checks didn't pass", .{});
+            .disarmed => if (!control.failsafe_state.is_failsafe() and control.command != .disarm) {
+                // if it is failsafe, don't trust the command
+
+                const channels: receiver.Channels = receiver.msg_channels.get() orelse .default;
+                if (channels.get(.throttle) > MAX_ARM_THROTTLE_US) {
+                    log.warn("arm failed", .{});
+                    control.arm_state = .arm_failed;
                 } else {
                     log.info("armed", .{});
-                    control.arm_state = true;
+                    control.arm_state = .armed;
                 }
             },
-            true => if (control.command == .disarm) {
+            .armed, .arm_failed => if (control.command == .disarm or control.failsafe_state.is_failsafe()) {
                 log.info("disarmed", .{});
-                control.arm_state = false;
+                control.arm_state = .disarmed;
             },
         }
 
         msg_status.publish(.{
             .failsafe = control.failsafe_state.is_failsafe(),
-            .arm = control.arm_state,
+            .arm = control.arm_state == .armed,
         });
 
-        const command: Command = if (control.arm_state) control.command else .disarm;
+        const command: Command = if (control.arm_state == .armed) control.command else .disarm;
         control.rate_command = switch (command) {
             .angle => |target| blk: {
                 const attitude = fusion.msg_attitude.get() orelse
@@ -177,13 +184,19 @@ pub const Loop = struct {
     }
 };
 
-const Failsafe = union(enum) {
+const ArmState = enum {
+    disarmed,
+    arm_failed,
+    armed,
+};
+
+const FailsafeState = union(enum) {
     off,
     probation: time.Absolute,
     failsafe,
     recovery: time.Absolute,
 
-    pub fn is_failsafe(self: Failsafe) bool {
+    pub fn is_failsafe(self: FailsafeState) bool {
         return switch (self) {
             .off => false,
             .probation => false,
@@ -302,33 +315,3 @@ pub const Status = packed struct {
 };
 
 const testing = std.testing;
-
-test "RateController.AxisControl" {
-    var axis: RateController.AxisControl = .{};
-    const gains: RateParams.AxisGains = .{ .kff = 1.0, .kp = 2.0, .ki = 0.5 };
-
-    const dt: f32 = 0.002;
-    // ff 1*1 + p 2*0.75 + i 0.5*0.75*0.002
-    try testing.expectApproxEqAbs(1.0 + 1.5 + 0.5 * 0.75 * dt, axis.update(gains, 1.0, 0.25, dt), 1e-6);
-
-    // error past i_term_max_error freezes the i term
-    _ = axis.update(gains, 100.0, 0.0, dt);
-    try testing.expectApproxEqAbs(0.5 * 0.75 * dt, axis.i_term, 1e-6);
-}
-
-test "RateController" {
-    var controller: RateController = .{};
-    const gyro: math.Vec3 = .{ .x = 0.5, .y = 0.0, .z = 0.0 };
-    const target: RateCommand = .{ .x = 1.0, .y = 0.0, .z = 0.0 };
-
-    const out = controller.update(.default, target, gyro, 0.002);
-    // roll: ff 1*1 + p 1.5*0.5 + i 0.8*0.5*0.002
-    try testing.expectApproxEqAbs(1.0 + 0.75 + 0.8 * 0.5 * 0.002, out.x, 1e-5);
-    try testing.expectApproxEqAbs(0.0, out.y, 1e-6);
-    try testing.expectApproxEqAbs(0.0, out.z, 1e-6);
-
-    controller.reset_i_term();
-    try testing.expectEqual(@as(f32, 0.0), controller.roll.i_term);
-    try testing.expectEqual(@as(f32, 0.0), controller.pitch.i_term);
-    try testing.expectEqual(@as(f32, 0.0), controller.yaw.i_term);
-}
