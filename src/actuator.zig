@@ -28,12 +28,12 @@ pub const Actuator = struct {
         // if we don't have params, don't output anything
         const params: Params = param_table.get() orelse .wing;
 
-        if (output.throttle > 0.0) {
+        if (output.throttle >= 0.05) {
             var values_motor: [hw.motors.count]f32 = undefined;
             for (&values_motor, &params.mtr) |*value_ptr, *params_motor| {
                 const mix = params_motor.mix.clamp(-1.0, 1.0);
 
-                const mixed = math.Vec3.dot(mix, output.throw);
+                const mixed = output.throttle + math.Vec3.dot(mix, output.throw);
                 const mixed_clamped = std.math.clamp(mixed, 0.0, 1.0);
                 value_ptr.* = mixed_clamped;
             }
