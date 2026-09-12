@@ -50,6 +50,14 @@ pub const hw_def: hw.Definition = .{
         .storage_start = FLASH_SIZE - 64 * 1024,
         .storage_end = FLASH_SIZE,
     },
+    .led_strip = .{
+        .count = 1,
+        .config = .{
+            .pio = .pio2,
+            .sm = .sm0,
+            .pin = .num(46),
+        },
+    },
 };
 
 // assign_resources! {

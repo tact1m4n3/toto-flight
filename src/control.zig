@@ -30,7 +30,8 @@ pub const Loop = struct {
 
     rate_command: ?RateCommand = null,
 
-    arm_state: ArmState = .disarmed,
+    // NOTE: start as arm failed to prevent accidental arming on boot
+    arm_state: ArmState = .arm_failed,
     failsafe_state: FailsafeState = .failsafe,
 
     rate_controller: RateController = .{},
@@ -156,7 +157,7 @@ pub const Loop = struct {
 
         msg_status.publish(.{
             .failsafe = control.failsafe_state.is_failsafe(),
-            .arm = control.arm_state == .armed,
+            .armed = control.arm_state == .armed,
         });
 
         const command: Command = if (control.arm_state == .armed) control.command else .disarm;
@@ -310,8 +311,6 @@ pub const RateController = struct {
 };
 
 pub const Status = packed struct {
-    arm: bool,
+    armed: bool,
     failsafe: bool,
 };
-
-const testing = std.testing;

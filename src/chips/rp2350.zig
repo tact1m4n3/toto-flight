@@ -7,10 +7,12 @@ const rp2xxx = microzig.hal;
 
 const actuator = @import("../actuator.zig");
 const control = @import("../control.zig");
+const drivers = @import("../drivers.zig");
 const hw = @import("../hw.zig");
 const imu = @import("../imu.zig");
 const receiver = @import("../receiver.zig");
 const storage = @import("../storage.zig");
+const status_led = @import("../status_led.zig");
 const Scheduler = @import("../Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
@@ -50,6 +52,8 @@ var task_control: control.Loop = undefined;
 
 var task_actuator: actuator.Actuator = undefined;
 
+var task_status_led: status_led.StatusLed = undefined;
+
 var task_cpu_usage: CPU_Usage = undefined;
 
 pub fn main() noreturn {
@@ -70,6 +74,8 @@ pub fn main() noreturn {
     motors.apply();
     servos.apply();
 
+    led_strip.apply();
+
     log.info("initializing tasks", .{});
 
     task_imu.init(&scheduler_realtime_priority);
@@ -80,6 +86,7 @@ pub fn main() noreturn {
     task_channel_mapper.init(&scheduler_high_priority);
 
     task_storage.init(&scheduler_low_priority);
+    task_status_led.init(&scheduler_low_priority);
 
     task_cpu_usage.init(&scheduler_realtime_priority);
 
@@ -92,7 +99,9 @@ pub fn main() noreturn {
     }
 }
 
-const RTT = microzig.cpu.rtt.RTT(.{});
+const RTT = microzig.cpu.rtt.RTT(.{
+    .exclusive_access = null,
+});
 var rtt_logger: ?RTT.Writer = null;
 var rtt_writer_buf: [256]u8 = undefined;
 
@@ -111,6 +120,8 @@ pub fn log_fn(
         const current_time = hw.get_time_since_boot();
         const seconds = current_time.to_us() / std.time.us_per_s;
         const microseconds = current_time.to_us() % std.time.us_per_s;
+        const cs = enter_critical_section();
+        defer cs.leave();
         writer.interface.print(prefix ++ format ++ "\r\n", .{ seconds, microseconds } ++ args) catch {};
         writer.interface.flush() catch {};
     }
@@ -136,10 +147,10 @@ pub fn get_time_since_boot() Absolute {
     return .from_us(rp2xxx.time.get_time_since_boot().to_us());
 }
 
-const scheduler_priority_realtime: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(0));
-const scheduler_priority_high: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(1));
-const scheduler_priority_mid: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(2));
-const scheduler_priority_low: microzig.cpu.interrupt.Priority = @fromBackingInt(@intCast(3));
+const scheduler_priority_realtime: microzig.cpu.interrupt.Priority = @fromBackingInt(0);
+const scheduler_priority_high: microzig.cpu.interrupt.Priority = @fromBackingInt(1);
+const scheduler_priority_mid: microzig.cpu.interrupt.Priority = @fromBackingInt(2);
+const scheduler_priority_low: microzig.cpu.interrupt.Priority = @fromBackingInt(3);
 
 var scheduler_realtime_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_0));
 var scheduler_high_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_1));
@@ -164,7 +175,7 @@ fn schedulers_init() void {
     }
 }
 
-fn scheduler_pend_fn(comptime interrupt: microzig.cpu.ExternalInterrupt) fn () void {
+fn scheduler_pend_fn(comptime interrupt: microzig.cpu.ExternalInterrupt) *const fn () void {
     return struct {
         fn pend_fn() void {
             microzig.cpu.interrupt.set_pending(interrupt);
@@ -854,6 +865,84 @@ pub const servos = struct {
         }
     }
 };
+
+pub const LedStripConfig = struct {
+    pio: rp2xxx.pio.Pio,
+    sm: rp2xxx.pio.StateMachine,
+    pin: Pin,
+};
+
+pub const led_strip = if (hw.def.led_strip) |def_led_strip| struct {
+    fn apply() void {
+        const cfg = def_led_strip.config;
+
+        // TODO: the hal is a bit akward when using pins over 32
+        if (@backingInt(cfg.pin) >= 32) {
+            cfg.pio.get_regs().GPIOBASE.write_raw(16);
+        }
+
+        cfg.pio.gpio_init(cfg.pin);
+        cfg.pio.sm_set_pindir(cfg.sm, cfg.pin, 1, .out) catch unreachable;
+
+        const cycles_per_bit: comptime_int = ws2812_program.defines[0].value + //T1
+            ws2812_program.defines[1].value + //T2
+            ws2812_program.defines[2].value; //T3
+        const div = @as(f32, @floatFromInt(rp2xxx.clock_config.sys.?.frequency())) /
+            (800_000 * cycles_per_bit);
+
+        cfg.pio.sm_load_and_start_program(cfg.sm, ws2812_program, .{
+            .clkdiv = .from_float(div),
+            .pin_mappings = .{
+                .side_set = .single(cfg.pin),
+            },
+            .shift = .{
+                .out_shiftdir = .left,
+                .autopull = true,
+                .pull_threshold = 24,
+                .join_tx = true,
+            },
+        }) catch unreachable;
+        cfg.pio.sm_set_enabled(cfg.sm, true);
+    }
+
+    pub fn write(color: drivers.Color) void {
+        const cfg = def_led_strip.config;
+
+        // zig fmt: off
+        const code = @as(u32, color.b) <<  8 |
+                     @as(u32, color.r) << 16 |
+                     @as(u32, color.g) << 24;
+        // zig fmt: on
+        cfg.pio.sm_write(cfg.sm, code);
+    }
+
+    const ws2812_program = blk: {
+        @setEvalBranchQuota(10_000);
+        break :blk rp2xxx.pio.assemble(
+            \\;
+            \\; Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+            \\;
+            \\; SPDX-License-Identifier: BSD-3-Clause
+            \\;
+            \\.program ws2812
+            \\.side_set 1
+            \\
+            \\.define public T1 2
+            \\.define public T2 5
+            \\.define public T3 3
+            \\
+            \\.wrap_target
+            \\bitloop:
+            \\    out x, 1       side 0 [T3 - 1] ; Side-set still takes place when instruction stalls
+            \\    jmp !x do_zero side 1 [T1 - 1] ; Branch on the bit we shifted out. Positive pulse
+            \\do_one:
+            \\    jmp  bitloop   side 1 [T2 - 1] ; Continue driving high, for a long pulse
+            \\do_zero:
+            \\    nop            side 0 [T2 - 1] ; Or drive low, for a short pulse
+            \\.wrap
+        , .{}).get_program_by_name("ws2812");
+    };
+} else @compileError("led strip not available in this configuration");
 
 pub const CPU_Usage = struct {
     last_tick_ticks: u32,

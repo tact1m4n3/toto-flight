@@ -103,7 +103,7 @@ pub const Imu = struct {
     }
 
     fn calibrate_callback(imu: *Imu, _: void) void {
-        const arm_state = if (control.msg_status.get()) |status| status.arm else false;
+        const arm_state = if (control.msg_status.get()) |status| status.armed else false;
         if (!arm_state) {
             imu.calibrator = .enable;
         } else {

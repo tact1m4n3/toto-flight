@@ -43,6 +43,9 @@ pub const motors = chip.motors;
 pub const ServoConfig = chip.ServoConfig;
 pub const servos = chip.servos;
 
+pub const LedStripConfig = chip.LedStripConfig;
+pub const led_strip = chip.led_strip;
+
 pub const Definition = struct {
     imu: struct {
         tick_period: time.Duration,
@@ -65,7 +68,12 @@ pub const Definition = struct {
         outputs: []const MotorConfig,
     },
     servos: []const ServoConfig,
-    flash: chip.FlashConfig,
+    flash: FlashConfig,
+    // TODO: maybe make this plural
+    led_strip: ?struct {
+        count: usize,
+        config: LedStripConfig,
+    } = null,
 };
 
 pub const def: Definition = board.hw_def;

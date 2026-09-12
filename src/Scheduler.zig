@@ -63,8 +63,8 @@ pub const Task = struct {
     pub fn ready(task: *Task) void {
         if (task.state.swap(.ready, .acquire) == .idle) {
             task.scheduler.ready_tasks.push(&task.node);
+            task.scheduler.pend_fn();
         }
-        task.scheduler.pend_fn();
     }
 
     fn init_callback(
@@ -213,7 +213,7 @@ const TransferStack = struct {
     pub fn push(self: *TransferStack, node: *Node) void {
         while (true) {
             node.next = self.first.load(.monotonic);
-            if (self.first.cmpxchgWeak(node.next, node, .release, .monotonic) == null) {
+            if (self.first.cmpxchgWeak(node.next, node, .acq_rel, .monotonic) == null) {
                 break;
             }
         }

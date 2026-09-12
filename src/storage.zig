@@ -52,7 +52,7 @@ pub fn StorageGeneric(tables: anytype) type {
         }
 
         fn save_callback(store: *Self, _: void) void {
-            const arm_state = if (control.msg_status.get()) |status| status.arm else false;
+            const arm_state = if (control.msg_status.get()) |status| status.armed else false;
             if (arm_state) {
                 log.warn("skipping config save because system is armed", .{});
                 return;
