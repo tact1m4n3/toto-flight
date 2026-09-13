@@ -69,8 +69,6 @@ pub const Battery = struct {
             },
         };
 
-        log.info("voltage: {}, current: {}", .{ voltage, current });
-
         {
             const dt_s = ticker.get_period().to_secs_f32();
             const dt_h = dt_s / 3600.0;
