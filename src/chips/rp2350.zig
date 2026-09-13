@@ -4,20 +4,23 @@ const assert = std.debug.assert;
 const microzig = @import("microzig");
 const cpu = microzig.cpu;
 const rp2xxx = microzig.hal;
+pub const Pin = rp2xxx.gpio.Pin;
+pub const ServoConfig = Pin;
 
 const actuator = @import("../actuator.zig");
+const battery = @import("../battery.zig");
 const control = @import("../control.zig");
 const drivers = @import("../drivers.zig");
 const hw = @import("../hw.zig");
 const imu = @import("../imu.zig");
 const receiver = @import("../receiver.zig");
-const storage = @import("../storage.zig");
-const status_led = @import("../status_led.zig");
 const Scheduler = @import("../Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
 const Task = Scheduler.Task;
 const Waker = Scheduler.Waker;
+const status_led = @import("../status_led.zig");
+const storage = @import("../storage.zig");
 const time = @import("../time.zig");
 const Duration = time.Duration;
 const Absolute = time.Absolute;
@@ -45,19 +48,19 @@ var task_storage: storage.StorageGeneric(.{
 }) = undefined;
 
 var task_imu: imu.Imu = undefined;
+var task_control: control.Loop = undefined;
+var task_actuator: actuator.Actuator = undefined;
+
 var task_rx: receiver.Rx = undefined;
 var task_channel_mapper: receiver.ChannelMapper = undefined;
 
-var task_control: control.Loop = undefined;
-
-var task_actuator: actuator.Actuator = undefined;
-
+var task_battery: battery.Battery = undefined;
 var task_status_led: status_led.StatusLed = undefined;
 
 var task_cpu_usage: CPU_Usage = undefined;
 
 pub fn main() noreturn {
-    microzig.cpu.interrupt.disable_interrupts();
+    cpu.interrupt.disable_interrupts();
 
     RTT.init();
     rtt_logger = RTT.writer(0, &rtt_writer_buf);
@@ -70,11 +73,10 @@ pub fn main() noreturn {
     InterruptPin.apply_all();
     UART.apply_all();
     SPI.apply_all();
+    I2C.apply();
 
     motors.apply();
     servos.apply();
-
-    led_strip.apply();
 
     log.info("initializing tasks", .{});
 
@@ -85,12 +87,21 @@ pub fn main() noreturn {
     task_rx.init(&scheduler_high_priority);
     task_channel_mapper.init(&scheduler_high_priority);
 
+    // all i2c transfers must happen on the same scheduler
+    if (hw.def.battery) |_| {
+        task_battery.init(&scheduler_mid_priority);
+    }
+
     task_storage.init(&scheduler_low_priority);
-    task_status_led.init(&scheduler_low_priority);
+
+    if (hw.def.led_strip) |_| {
+        led_strip.apply();
+        task_status_led.init(&scheduler_low_priority);
+    }
 
     task_cpu_usage.init(&scheduler_realtime_priority);
 
-    microzig.cpu.interrupt.enable_interrupts();
+    cpu.interrupt.enable_interrupts();
 
     log.info("initialization done", .{});
 
@@ -99,7 +110,7 @@ pub fn main() noreturn {
     }
 }
 
-const RTT = microzig.cpu.rtt.RTT(.{
+const RTT = cpu.rtt.RTT(.{
     .exclusive_access = null,
 });
 var rtt_logger: ?RTT.Writer = null;
@@ -120,6 +131,7 @@ pub fn log_fn(
         const current_time = hw.get_time_since_boot();
         const seconds = current_time.to_us() / std.time.us_per_s;
         const microseconds = current_time.to_us() % std.time.us_per_s;
+
         const cs = enter_critical_section();
         defer cs.leave();
         writer.interface.print(prefix ++ format ++ "\r\n", .{ seconds, microseconds } ++ args) catch {};
@@ -128,8 +140,8 @@ pub fn log_fn(
 }
 
 pub fn enter_critical_section() CriticalSection {
-    const enable_on_leave = microzig.cpu.interrupt.globally_enabled();
-    microzig.cpu.interrupt.disable_interrupts();
+    const enable_on_leave = cpu.interrupt.globally_enabled();
+    cpu.interrupt.disable_interrupts();
     return .{
         .enable_on_leave = enable_on_leave,
     };
@@ -138,7 +150,7 @@ pub const CriticalSection = struct {
     enable_on_leave: bool,
     pub fn leave(cs: CriticalSection) void {
         if (cs.enable_on_leave) {
-            microzig.cpu.interrupt.enable_interrupts();
+            cpu.interrupt.enable_interrupts();
         }
     }
 };
@@ -147,10 +159,10 @@ pub fn get_time_since_boot() Absolute {
     return .from_us(rp2xxx.time.get_time_since_boot().to_us());
 }
 
-const scheduler_priority_realtime: microzig.cpu.interrupt.Priority = @fromBackingInt(0);
-const scheduler_priority_high: microzig.cpu.interrupt.Priority = @fromBackingInt(1);
-const scheduler_priority_mid: microzig.cpu.interrupt.Priority = @fromBackingInt(2);
-const scheduler_priority_low: microzig.cpu.interrupt.Priority = @fromBackingInt(3);
+const scheduler_priority_realtime: cpu.interrupt.Priority = @fromBackingInt(0);
+const scheduler_priority_high: cpu.interrupt.Priority = @fromBackingInt(1);
+const scheduler_priority_mid: cpu.interrupt.Priority = @fromBackingInt(2);
+const scheduler_priority_low: cpu.interrupt.Priority = @fromBackingInt(3);
 
 var scheduler_realtime_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_0));
 var scheduler_high_priority: Scheduler = .init(scheduler_pend_fn(.SPAREIRQ_IRQ_1));
@@ -169,41 +181,39 @@ fn schedulers_init() void {
         scheduler_priority_mid,
         scheduler_priority_low,
     }) |interrupt, priority| {
-        microzig.cpu.interrupt.set_priority(interrupt, priority);
-        microzig.cpu.interrupt.clear_pending(interrupt);
-        microzig.cpu.interrupt.enable(interrupt);
+        cpu.interrupt.set_priority(interrupt, priority);
+        cpu.interrupt.clear_pending(interrupt);
+        cpu.interrupt.enable(interrupt);
     }
 }
 
-fn scheduler_pend_fn(comptime interrupt: microzig.cpu.ExternalInterrupt) *const fn () void {
+fn scheduler_pend_fn(comptime interrupt: cpu.ExternalInterrupt) *const fn () void {
     return struct {
         fn pend_fn() void {
-            microzig.cpu.interrupt.set_pending(interrupt);
+            cpu.interrupt.set_pending(interrupt);
         }
     }.pend_fn;
 }
 
 fn SPAREIRQ_IRQ_0() linksection(".ram_text") callconv(.c) void {
-    microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_0);
+    cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_0);
     scheduler_realtime_priority.run();
 }
 
 fn SPAREIRQ_IRQ_1() linksection(".ram_text") callconv(.c) void {
-    microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_1);
+    cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_1);
     scheduler_high_priority.run();
 }
 
 fn SPAREIRQ_IRQ_2() linksection(".ram_text") callconv(.c) void {
-    microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_2);
+    cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_2);
     scheduler_mid_priority.run();
 }
 
 fn SPAREIRQ_IRQ_3() linksection(".ram_text") callconv(.c) void {
-    microzig.cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_3);
+    cpu.interrupt.clear_pending(.SPAREIRQ_IRQ_3);
     scheduler_low_priority.run();
 }
-
-pub const Pin = rp2xxx.gpio.Pin;
 
 const timer = rp2xxx.system_timer.num(0);
 const timer_period_us: u32 = 1_000;
@@ -213,7 +223,7 @@ pub fn timer_init() void {
     timer.set_interrupt_enabled(.alarm0, true);
     timer_next_tick = timer.read_low() +% timer_period_us;
     timer.schedule_alarm(.alarm0, timer_next_tick);
-    microzig.cpu.interrupt.enable(.TIMER0_IRQ_0);
+    cpu.interrupt.enable(.TIMER0_IRQ_0);
 }
 
 // NOTE: this timer is already setup by the rp2xxx hal to tick every 1us
@@ -293,8 +303,8 @@ pub const InterruptPin = enum(u6) {
             pin.set_pull(.up);
             pin.set_irq_enabled(.{ .rise = 1 }, true);
         }
-        microzig.cpu.interrupt.clear_pending(.IO_IRQ_BANK0);
-        microzig.cpu.interrupt.enable(.IO_IRQ_BANK0);
+        cpu.interrupt.clear_pending(.IO_IRQ_BANK0);
+        cpu.interrupt.enable(.IO_IRQ_BANK0);
     }
 
     pub fn subscribe(
@@ -426,20 +436,16 @@ pub fn UART_State(cfg: UART_Config) type {
                         .rx = true,
                         .tx = true,
                         .rt = true,
-                        .fe = true,
-                        .pe = true,
-                        .be = true,
-                        .oe = true,
                     });
 
                     switch (uart) {
                         .num(0) => {
-                            microzig.cpu.interrupt.clear_pending(.UART0_IRQ);
-                            microzig.cpu.interrupt.enable(.UART0_IRQ);
+                            cpu.interrupt.clear_pending(.UART0_IRQ);
+                            cpu.interrupt.enable(.UART0_IRQ);
                         },
                         .num(1) => {
-                            microzig.cpu.interrupt.clear_pending(.UART1_IRQ);
-                            microzig.cpu.interrupt.enable(.UART1_IRQ);
+                            cpu.interrupt.clear_pending(.UART1_IRQ);
+                            cpu.interrupt.enable(.UART1_IRQ);
                         },
                         _ => @compileError("invalid uart"),
                     }
@@ -472,8 +478,8 @@ pub fn UART_State(cfg: UART_Config) type {
             switch (cfg.instance) {
                 .uart => |uart| {
                     switch (uart) {
-                        .num(0) => microzig.cpu.interrupt.set_pending(.UART0_IRQ),
-                        .num(1) => microzig.cpu.interrupt.set_pending(.UART1_IRQ),
+                        .num(0) => cpu.interrupt.set_pending(.UART0_IRQ),
+                        .num(1) => cpu.interrupt.set_pending(.UART1_IRQ),
                         _ => @compileError("invalid uart"),
                     }
                 },
@@ -676,7 +682,38 @@ pub const I2C_Config = struct {
     pin_scl: Pin,
 };
 
-// TODO: not quite happy with this config
+pub var i2c: I2C = .{};
+
+pub const I2C = struct {
+    const cfg = hw.def.i2c;
+
+    fn apply() void {
+        inline for (&.{
+            cfg.pin_sda,
+            cfg.pin_scl,
+        }) |pin| {
+            pin.set_function(.i2c);
+        }
+
+        cfg.instance.apply(.{
+            .clock_config = rp2xxx.clock_config,
+            .baud_rate = cfg.baud_rate,
+        });
+    }
+
+    pub fn read(_: I2C, addr: u7, buf: []u8) !void {
+        try cfg.instance.read_blocking(@fromBackingInt(addr), buf, .from_ms(1000));
+    }
+
+    pub fn write(_: I2C, addr: u7, buf: []const u8) !void {
+        try cfg.instance.write_blocking(@fromBackingInt(addr), buf, .from_ms(1000));
+    }
+
+    pub fn write_than_read(_: *I2C, addr: u7, write_buf: []const u8, read_buf: []u8) !void {
+        try cfg.instance.write_then_read_blocking(@fromBackingInt(addr), write_buf, read_buf, .from_ms(1000));
+    }
+};
+
 pub const MotorConfig = struct {
     pio: rp2xxx.pio.Pio,
     sm: rp2xxx.pio.StateMachine,
@@ -824,8 +861,6 @@ pub const motors = struct {
         return encode(THROTTLE_MIN + throttle, false);
     }
 };
-
-pub const ServoConfig = Pin;
 
 pub const servos = struct {
     pub const count = hw.def.servos.len;

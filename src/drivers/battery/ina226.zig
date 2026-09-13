@@ -17,8 +17,8 @@ pub fn INA_226(comptime I2C: type) type {
     return struct {
         const Self = @This();
 
-        i2c: I2C,
-        address: u8,
+        i2c: *I2C,
+        address: u7,
         current_lsb: f32,
         power_lsb: f32,
 
@@ -48,7 +48,7 @@ pub fn INA_226(comptime I2C: type) type {
         /// `InvalidCalibration` if no calibration value fits the register
         /// for the given `current_lsb` and `shunt_resistance` (pick a
         /// larger current LSB).
-        pub fn init(i2c: I2C, address: u8, clock: anytype, config: Config) !Self {
+        pub fn init(i2c: *I2C, address: u7, clock: anytype, config: Config) !Self {
             var self: Self = .{
                 .i2c = i2c,
                 .address = address,
@@ -130,6 +130,7 @@ pub fn INA_226(comptime I2C: type) type {
             return @bitCast(try self.read_word(.shunt_voltage));
         }
 
+        /// V
         pub fn read_shunt_voltage(self: Self) !f32 {
             return @as(f32, @floatFromInt(try self.read_shunt_voltage_raw())) * SHUNT_VOLTAGE_LSB;
         }
@@ -138,6 +139,7 @@ pub fn INA_226(comptime I2C: type) type {
             return try self.read_word(.bus_voltage);
         }
 
+        /// V
         pub fn read_bus_voltage(self: Self) !f32 {
             return @as(f32, @floatFromInt(try self.read_bus_voltage_raw())) * BUS_VOLTAGE_LSB;
         }
@@ -146,6 +148,7 @@ pub fn INA_226(comptime I2C: type) type {
             return @bitCast(try self.read_word(.current));
         }
 
+        /// A
         pub fn read_current(self: Self) !f32 {
             return @as(f32, @floatFromInt(try self.read_current_raw())) * self.current_lsb;
         }
@@ -154,51 +157,10 @@ pub fn INA_226(comptime I2C: type) type {
             return try self.read_word(.power);
         }
 
+        /// W
         pub fn read_power(self: Self) !f32 {
             return @as(f32, @floatFromInt(try self.read_power_raw())) * self.power_lsb;
         }
-
-        /// Burst-reads all four data registers in one transaction.
-        pub fn read_raw(self: Self) !DataRaw {
-            var buf: [8]u8 = undefined;
-            try self.i2c.write_than_read(self.address, &.{@backingInt(Register.shunt_voltage)}, &buf);
-            return .{
-                .shunt_voltage = std.mem.readInt(i16, buf[0..2], .big),
-                .bus_voltage = std.mem.readInt(u16, buf[2..4], .big),
-                .power = std.mem.readInt(u16, buf[4..6], .big),
-                .current = std.mem.readInt(i16, buf[6..8], .big),
-            };
-        }
-
-        /// Burst-reads all four data registers in one transaction, scaled
-        /// according to the calibration this instance was configured with.
-        pub fn read(self: Self) !Data {
-            const raw = try self.read_raw();
-            return .{
-                .shunt_voltage = @as(f32, @floatFromInt(raw.shunt_voltage)) * SHUNT_VOLTAGE_LSB,
-                .bus_voltage = @as(f32, @floatFromInt(raw.bus_voltage)) * BUS_VOLTAGE_LSB,
-                .power = @as(f32, @floatFromInt(raw.power)) * self.power_lsb,
-                .current = @as(f32, @floatFromInt(raw.current)) * self.current_lsb,
-            };
-        }
-
-        pub const DataRaw = struct {
-            shunt_voltage: i16,
-            bus_voltage: u16,
-            power: u16,
-            current: i16,
-        };
-
-        pub const Data = struct {
-            /// V
-            shunt_voltage: f32,
-            /// V
-            bus_voltage: f32,
-            /// W
-            power: f32,
-            /// A
-            current: f32,
-        };
 
         /// Reads the Mask/Enable register. Note that reading this register
         /// clears the alert function flag when the alert is latched.
@@ -250,11 +212,11 @@ pub fn INA_226(comptime I2C: type) type {
         }
 
         pub const Mode = enum(u3) {
-            triggered_shunt_and_bus = 0b000,
+            power_down = 0b000,
             triggered_shunt = 0b001,
             triggered_bus = 0b010,
-            // 0b011 duplicates .triggered_shunt_and_bus
-            power_down = 0b100,
+            triggered_shunt_and_bus = 0b011,
+            // 0b100 duplicates .power_down
             continuous_shunt = 0b101,
             continuous_bus = 0b110,
             continuous_shunt_and_bus = 0b111,
@@ -344,6 +306,8 @@ pub fn INA_226(comptime I2C: type) type {
                 shunt_conversion_time: ConversionTime = .@"1.1ms",
                 bus_conversion_time: ConversionTime = .@"1.1ms",
                 averaging: Averaging = .x1,
+                // POR default is 0x4127: bit 14 reads back 1. Keep writes going
+                // through modify_reg so this field is preserved, not zeroed.
                 reserved: u3 = 0,
                 rst: bool = false,
             };

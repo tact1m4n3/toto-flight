@@ -48,11 +48,11 @@ const Driver = switch (hw.def.imu.type) {
 };
 
 pub const Imu = struct {
-    driver: Driver,
-    calibrator: Calibrator = .init,
-
     rcv_tick: Receiver(time.Absolute) = undefined,
     rcv_calibrate: Receiver(void) = undefined,
+
+    driver: Driver,
+    calibrator: Calibrator = .init,
 
     pub fn init(imu: *Imu, scheduler: *Scheduler) void {
         if (comptime hw.def.imu.tick_period != time.Duration.from_hz(1000))

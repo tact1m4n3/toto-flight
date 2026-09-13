@@ -7,30 +7,6 @@ pub const FLASH_STORAGE_END = FLASH_SIZE;
 // TODO: separate config into build specific (eg. my custom plane) and board
 // specific
 pub const hw_def: hw.Definition = .{
-    .imu = .{
-        .tick_period = .from_hz(1000),
-        .type = .lsm6dsv,
-        .spi = .{
-            .instance = .num(1),
-            .baud_rate = 10_000_000,
-            .pin_clk = .num(30),
-            .pin_mosi = .num(31),
-            .pin_miso = .num(28),
-            .pin_cs = .num(29),
-        },
-        .pin_interrupt = .num(27),
-    },
-    .receiver = .{
-        .protocol = .crsf,
-        .uart = .{
-            .instance = .{ .uart = .num(0) },
-            .baud_rate = 115_200,
-            .pin_tx = .num(0),
-            .pin_rx = .num(1),
-            .buf_size_tx = 128,
-            .buf_size_rx = 128,
-        },
-    },
     .motors = .{
         .protocol = .dshot_300,
         .outputs = &.{
@@ -45,11 +21,45 @@ pub const hw_def: hw.Definition = .{
         .num(11),
         .num(15),
     },
-    .flash = .{
-        .size = FLASH_SIZE,
-        .storage_start = FLASH_SIZE - 64 * 1024,
-        .storage_end = FLASH_SIZE,
+
+    .imu = .{
+        .tick_period = .from_hz(1000),
+        .type = .lsm6dsv,
+        .spi = .{
+            .instance = .num(1),
+            .baud_rate = 10_000_000,
+            .pin_clk = .num(30),
+            .pin_mosi = .num(31),
+            .pin_miso = .num(28),
+            .pin_cs = .num(29),
+        },
+        .pin_interrupt = .num(27),
     },
+
+    .receiver = .{
+        .protocol = .crsf,
+        .uart = .{
+            .instance = .{ .uart = .num(0) },
+            .baud_rate = 115_200,
+            .pin_tx = .num(0),
+            .pin_rx = .num(1),
+            .buf_size_tx = 128,
+            .buf_size_rx = 128,
+        },
+    },
+
+    .i2c = .{
+        .instance = .num(0),
+        .baud_rate = 400_000,
+        .pin_sda = .num(32),
+        .pin_scl = .num(33),
+    },
+    .battery = .{
+        .type = .ina226,
+        .shunt_resistance = 0.002,
+        .max_current = 50.0,
+    },
+
     .led_strip = .{
         .count = 1,
         .config = .{
@@ -57,6 +67,12 @@ pub const hw_def: hw.Definition = .{
             .sm = .sm0,
             .pin = .num(46),
         },
+    },
+
+    .flash = .{
+        .size = FLASH_SIZE,
+        .storage_start = FLASH_SIZE - 64 * 1024,
+        .storage_end = FLASH_SIZE,
     },
 };
 

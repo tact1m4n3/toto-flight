@@ -36,6 +36,8 @@ pub const flash = &chip.flash;
 pub const Flash = chip.Flash;
 
 pub const I2C_Config = chip.I2C_Config;
+pub const i2c = &chip.i2c;
+pub const I2C = chip.I2C;
 
 pub const MotorConfig = chip.MotorConfig;
 pub const motors = chip.motors;
@@ -47,6 +49,14 @@ pub const LedStripConfig = chip.LedStripConfig;
 pub const led_strip = chip.led_strip;
 
 pub const Definition = struct {
+    motors: struct {
+        protocol: enum {
+            dshot_300,
+        },
+        outputs: []const MotorConfig,
+    },
+    servos: []const ServoConfig,
+
     imu: struct {
         tick_period: time.Duration,
         type: enum {
@@ -55,25 +65,30 @@ pub const Definition = struct {
         spi: SPI_Config,
         pin_interrupt: Pin,
     },
+
     receiver: struct {
         protocol: enum {
             crsf,
         },
         uart: UART_Config,
     },
-    motors: struct {
-        protocol: enum {
-            dshot_300,
+
+    i2c: I2C_Config,
+    battery: ?struct {
+        type: enum {
+            ina226,
         },
-        outputs: []const MotorConfig,
-    },
-    servos: []const ServoConfig,
-    flash: FlashConfig,
+        shunt_resistance: f32,
+        max_current: f32,
+    } = null,
+
     // TODO: maybe make this plural
     led_strip: ?struct {
         count: usize,
         config: LedStripConfig,
     } = null,
+
+    flash: FlashConfig,
 };
 
 pub const def: Definition = board.hw_def;
