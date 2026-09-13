@@ -211,9 +211,12 @@ const TransferStack = struct {
     };
 
     pub fn push(self: *TransferStack, node: *Node) void {
+        var first = self.first.load(.monotonic);
         while (true) {
-            node.next = self.first.load(.monotonic);
-            if (self.first.cmpxchgWeak(node.next, node, .acq_rel, .monotonic) == null) {
+            node.next = first;
+            if (self.first.cmpxchgWeak(first, node, .release, .monotonic)) |new_first| {
+                first = new_first;
+            } else {
                 break;
             }
         }

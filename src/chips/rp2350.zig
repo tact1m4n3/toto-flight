@@ -28,9 +28,6 @@ const RingBuffer = @import("../utils/ring_buffer.zig").RingBuffer;
 
 const log = std.log.scoped(.chip_rp2350);
 
-// TODO: maybe ticker and periodics can be merged into one enum, tasks
-// subscribe to the corresponding ticker
-
 pub const interrupts: microzig.InterruptOptions = .{
     .TIMER0_IRQ_0 = .{ .c = TIMER0_IRQ_0 },
     .IO_IRQ_BANK0 = .{ .c = IO_IRQ_BANK0 },
@@ -261,15 +258,14 @@ pub const Ticker = enum(u32) {
 
     var states: std.EnumArray(Ticker, State) = .initFill(.{});
 
-    /// Inline this into the interrupt handler.
-    inline fn tick_all() void {
+    fn tick_all() void {
         const now = get_time_since_boot();
-        inline for (std.enums.values(Ticker)) |ticker| {
+        for (std.enums.values(Ticker)) |ticker| {
             var state = states.getPtr(ticker);
             while (state.next_tick.is_reached_by(now)) {
                 const ts = state.next_tick;
+                state.next_tick = ts.add_duration(ticker.get_period());
                 state.message.publish(ts);
-                state.next_tick = ts.add_duration(comptime ticker.get_period());
             }
         }
     }
@@ -486,8 +482,7 @@ pub fn UART_State(cfg: UART_Config) type {
             }
         }
 
-        // Inline because we want it in .ram_text
-        pub inline fn on_interrupt(state: *Self) void {
+        pub fn on_interrupt(state: *Self) void {
             switch (cfg.instance) {
                 .uart => |uart| {
                     // TX fires on transition through the level, not the level

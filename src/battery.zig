@@ -16,7 +16,7 @@ pub const Data = struct {
     voltage: f32,
     /// A
     current: f32,
-    /// Ah
+    /// mAh
     capacity_used: f32,
 };
 
@@ -70,10 +70,10 @@ pub const Battery = struct {
         };
 
         {
-            const dt_s = ticker.get_period().to_secs_f32();
+            const dt_s = comptime ticker.get_period().to_secs_f32();
             const dt_h = dt_s / 3600.0;
             const instant_current_A = (battery.prev_current + current) / 2.0;
-            const instant_current_mA = instant_current_A / 1000.0;
+            const instant_current_mA = instant_current_A * 1000.0;
             battery.capacity_used += instant_current_mA * dt_h;
             battery.prev_current = current;
         }
