@@ -2,6 +2,10 @@ pub const imu = struct {
     pub const lsm6dsv = @import("drivers/imu/lsm6dsv.zig");
 };
 
+pub const battery = struct {
+    pub const ina226 = @import("drivers/battery/ina226.zig");
+};
+
 pub const storage = @import("drivers/storage.zig");
 
 pub const Color = extern struct {
