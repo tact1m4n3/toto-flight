@@ -48,18 +48,14 @@ const Driver = switch (hw.def.imu.type) {
 };
 
 pub const Imu = struct {
-    rcv_tick: Receiver(time.Absolute) = undefined,
     rcv_calibrate: Receiver(void) = undefined,
 
     driver: Driver,
     calibrator: Calibrator = .init,
 
     pub fn init(imu: *Imu, scheduler: *Scheduler) void {
-        if (comptime hw.def.imu.tick_period != time.Duration.from_hz(1000))
-            @compileError("imu tick period must be 1kHz for now");
-
         const driver = switch (hw.def.imu.type) {
-            .lsm6dsv => Driver.init(.imu, hw.clock, .{}) catch |err| {
+            .lsm6dsv => Driver.init(hw.SPI.get(.imu), hw.Clock.instance, .{}) catch |err| {
                 log.err("failed to init: {t}", .{err});
                 return;
             },
@@ -69,11 +65,12 @@ pub const Imu = struct {
             .driver = driver,
         };
 
-        hw.InterruptPin.imu.subscribe(&imu.rcv_tick, *Imu, imu, read_sample_callback, scheduler);
+        hw.InterruptPin.imu.subscribe(*Imu, imu, read_sample_callback, scheduler);
         msg_calibrate.subscribe(&imu.rcv_calibrate, *Imu, imu, calibrate_callback, scheduler);
     }
 
-    fn read_sample_callback(imu: *Imu, ts: time.Absolute) void {
+    fn read_sample_callback(imu: *Imu) void {
+        const ts = hw.get_time_since_boot();
         const raw_data = imu.driver.read() catch |err| {
             log.err("failed to read sample: {t}", .{err});
         };

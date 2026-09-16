@@ -32,7 +32,7 @@ pub fn StorageGeneric(tables: anytype) type {
 
             storage.* = .{
                 .driver = Driver.init(
-                    hw.flash,
+                    hw.Flash.instance,
                     hw.def.flash.storage_start,
                     hw.def.flash.storage_end,
                 ) catch @panic("failed to init storage"),

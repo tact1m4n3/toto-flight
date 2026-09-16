@@ -17,7 +17,7 @@ pub fn INA_226(comptime I2C: type) type {
     return struct {
         const Self = @This();
 
-        i2c: *I2C,
+        i2c: I2C,
         address: u7,
         current_lsb: f32,
         power_lsb: f32,
@@ -48,7 +48,7 @@ pub fn INA_226(comptime I2C: type) type {
         /// `InvalidCalibration` if no calibration value fits the register
         /// for the given `current_lsb` and `shunt_resistance` (pick a
         /// larger current LSB).
-        pub fn init(i2c: *I2C, address: u7, clock: anytype, config: Config) !Self {
+        pub fn init(i2c: I2C, address: u7, clock: anytype, config: Config) !Self {
             var self: Self = .{
                 .i2c = i2c,
                 .address = address,

@@ -1,15 +1,18 @@
 const std = @import("std");
 
-pub fn RingBuffer(T: type, capacity: usize) type {
-    comptime {
-        std.debug.assert(capacity > 0);
-    }
+pub fn RingBuffer(T: type) type {
     return struct {
         const Self = @This();
 
-        buffer: [capacity]T = undefined,
+        buffer: []T,
         read_pos: std.atomic.Value(usize) = .init(0),
         write_pos: std.atomic.Value(usize) = .init(0),
+
+        pub fn init(buffer: []T) Self {
+            return .{
+                .buffer = buffer,
+            };
+        }
 
         pub fn is_empty(self: *Self) bool {
             return self.read_pos.load(.acquire) == self.write_pos.load(.acquire);
@@ -21,11 +24,11 @@ pub fn RingBuffer(T: type, capacity: usize) type {
 
             const read_pos = self.read_pos.load(.acquire);
 
-            if (next_write_pos -% read_pos > capacity) {
+            if (next_write_pos -% read_pos > self.buffer.len) {
                 return error.BufferFull;
             }
 
-            self.buffer[write_pos % capacity] = value;
+            self.buffer[write_pos % self.buffer.len] = value;
             self.write_pos.store(next_write_pos, .release);
         }
 
@@ -37,7 +40,7 @@ pub fn RingBuffer(T: type, capacity: usize) type {
                 return null;
             }
 
-            const value = self.buffer[read_pos % capacity];
+            const value = self.buffer[read_pos % self.buffer.len];
             self.read_pos.store(read_pos +% 1, .release);
             return value;
         }
@@ -47,7 +50,8 @@ pub fn RingBuffer(T: type, capacity: usize) type {
 const testing = std.testing;
 
 test "push/pop preserves FIFO order" {
-    var rb = RingBuffer(u32, 4){};
+    var buffer: [4]u32 = undefined;
+    var rb: RingBuffer(u32) = .init(&buffer);
     try rb.push(1);
     try rb.push(2);
     try testing.expectEqual(@as(?u32, 1), rb.pop());
@@ -56,7 +60,8 @@ test "push/pop preserves FIFO order" {
 }
 
 test "buffer full/empty boundaries" {
-    var rb = RingBuffer(u32, 2){};
+    var buffer: [2]u32 = undefined;
+    var rb: RingBuffer(u32) = .init(&buffer);
     try rb.push(1);
     try rb.push(2);
     try testing.expectError(error.BufferFull, rb.push(3));

@@ -46,14 +46,14 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
         const KEY_OFFSET = HEADER_OFFSET + alignForward(u16, @sizeOf(ItemHeader), WRITE_SIZE);
         const VALUE_OFFSET = KEY_OFFSET + alignForward(u16, @sizeOf(Key), WRITE_SIZE);
 
-        flash: *Flash,
+        flash: Flash,
         range_start: u32,
         range_end: u32,
         current_offset: u32,
         active_sector_offset: u32,
         last_sector_offset: u32,
 
-        pub fn init(flash: *Flash, range_start: u32, range_end: u32) !Storage {
+        pub fn init(flash: Flash, range_start: u32, range_end: u32) !Storage {
             if (range_start >= range_end) {
                 return error.InvalidRange;
             }
@@ -607,22 +607,12 @@ pub fn MockFlash(options: MockFlashOptions) type {
         power_loss_tripwire: ?u32 = null,
         power_loss_tripped: bool = false,
 
-        pub fn init(gpa: std.mem.Allocator, size: usize) !Self {
-            if (size % options.write_size != 0 or size % options.erase_size != 0) {
-                return error.InvalidSize;
-            }
-
-            const buf: []u8 = try gpa.alloc(u8, size);
-            errdefer gpa.free(buf);
-            @memset(buf, 0xFF);
-
+        pub fn init(buf: []u8) Self {
+            assert(buf.len % options.write_size == 0);
+            assert(buf.len % options.erase_size == 0);
             return .{
                 .buf = buf,
             };
-        }
-
-        pub fn deinit(self: *Self, gpa: std.mem.Allocator) void {
-            gpa.free(self.buf);
         }
 
         pub fn erase(self: *Self, offset: u32, size: u32) error{InvalidRange}!void {
@@ -748,9 +738,11 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
         const FLASH_SIZE = 4 * 1024; // 4 sectors
 
         test "store then fetch roundtrip" {
-            var flash: TestFlash = try .init(testing.allocator, FLASH_SIZE);
-            defer flash.deinit(testing.allocator);
-            var s: TestStorage = try .init(&flash, 0, FLASH_SIZE);
+            const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
+            defer testing.allocator.free(buf);
+            @memset(buf, 0xFF);
+
+            var s: TestStorage = try .init(TestFlash.init(buf), 0, FLASH_SIZE);
 
             try s.store(1, @as(u32, 111));
             try s.store(2, @as(u32, 222));
@@ -760,9 +752,11 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
         }
 
         test "overwrite frees the old item" {
-            var flash: TestFlash = try .init(testing.allocator, FLASH_SIZE);
-            defer flash.deinit(testing.allocator);
-            var s: TestStorage = try .init(&flash, 0, FLASH_SIZE);
+            const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
+            defer testing.allocator.free(buf);
+            @memset(buf, 0xFF);
+
+            var s: TestStorage = try .init(TestFlash.init(buf), 0, FLASH_SIZE);
 
             try s.store(1, @as(u32, 111));
             try s.store(1, @as(u32, 999));
@@ -774,11 +768,12 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
             // MockFlash does an expensive corruption check. If we add caching
             // it should be faster.
 
-            var flash: TestFlash = try .init(testing.allocator, FLASH_SIZE);
-            defer flash.deinit(testing.allocator);
+            const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
+            defer testing.allocator.free(buf);
+            @memset(buf, 0xFF);
 
             {
-                var s: TestStorage = try .init(&flash, 0, FLASH_SIZE);
+                var s: TestStorage = try .init(TestFlash.init(buf), 0, FLASH_SIZE);
                 // write enough small items to force several sector rotations
                 var i: u32 = 0;
                 while (i < 100) : (i += 1) {
@@ -788,7 +783,7 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
 
             {
                 // reinit from the same buffer, as if we just power-cycled cleanly
-                var s = try TestStorage.init(&flash, 0, FLASH_SIZE);
+                var s = try TestStorage.init(TestFlash.init(buf), 0, FLASH_SIZE);
                 var k: u32 = 0;
                 while (k < 20) : (k += 1) {
                     try testing.expect((try s.fetch(k, u32)) != null);
@@ -797,18 +792,22 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
         }
 
         test "item too big is rejected" {
-            var flash: TestFlash = try .init(testing.allocator, FLASH_SIZE);
-            defer flash.deinit(testing.allocator);
-            var s: TestStorage = try .init(&flash, 0, FLASH_SIZE);
+            const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
+            defer testing.allocator.free(buf);
+            @memset(buf, 0xFF);
+
+            var s: TestStorage = try .init(TestFlash.init(buf), 0, FLASH_SIZE);
 
             const big: [2000]u8 = undefined;
             try testing.expectError(error.ItemTooBig, s.store(1, big));
         }
 
         test "single sector range cannot advance" {
-            var flash: TestFlash = try .init(testing.allocator, FLASH_SIZE);
-            defer flash.deinit(testing.allocator);
-            var s: TestStorage = try .init(&flash, 0, 1024);
+            const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
+            defer testing.allocator.free(buf);
+            @memset(buf, 0xFF);
+
+            var s: TestStorage = try .init(TestFlash.init(buf), 0, 1024);
 
             // fill the single sector until it can't fit another item
             var i: u32 = 0;
@@ -822,10 +821,11 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
         }
 
         test "normal out of memory error" {
-            var flash: TestFlash = try .init(testing.allocator, FLASH_SIZE);
-            defer flash.deinit(testing.allocator);
+            const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
+            defer testing.allocator.free(buf);
+            @memset(buf, 0xFF);
 
-            var s: TestStorage = try .init(&flash, 0, FLASH_SIZE);
+            var s: TestStorage = try .init(TestFlash.init(buf), 0, FLASH_SIZE);
             // write enough small items to force several sector rotations
             var i: u32 = 0;
             while (true) : (i += 1) {
@@ -852,12 +852,13 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
 //     const Storage = StorageGeneric(TestFlash, u32, .{});
 //     const Value = u128;
 //
-//     const flash_size = 4 * 1024;
+//     const FLASH_SIZE = 4 * 1024;
 //
-//     var flash: TestFlash = try .init(testing.allocator, flash_size);
-//     defer flash.deinit(testing.allocator);
+//     const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
+//     defer testing.allocator.free(buf);
+//     @memset(buf, 0xFF);
 //
-//     var storage: Storage = try .init(&flash, 0, flash_size);
+//     var storage: Storage = try .init(TestFlash.init(buf), 0, FLASH_SIZE);
 //
 //     var model: std.AutoHashMapUnmanaged(u32, Value) = .empty;
 //     defer model.deinit(testing.allocator);

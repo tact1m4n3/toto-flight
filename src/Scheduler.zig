@@ -33,6 +33,18 @@ pub fn run(scheduler: *Scheduler) void {
     }
 }
 
+pub const SafetyMutex = struct {
+    locked: std.atomic.Value(bool) = .init(false),
+
+    pub fn lock(self: *SafetyMutex) void {
+        assert(self.locked.swap(true, .release) == false);
+    }
+
+    pub fn unlock(self: *SafetyMutex) void {
+        assert(self.locked.swap(false, .release) == true);
+    }
+};
+
 pub const Task = struct {
     state: std.atomic.Value(State),
     scheduler: *Scheduler,
@@ -43,6 +55,45 @@ pub const Task = struct {
     pub const State = enum(u8) {
         idle,
         ready,
+    };
+
+    pub const Waker = struct {
+        init_state: std.atomic.Value(InitState),
+        task: Task,
+
+        pub const uninited: Waker = .{
+            .init_state = .init(.uninited),
+            .task = undefined,
+        };
+
+        pub const InitState = enum(u8) {
+            uninited,
+            initializing,
+            inited,
+        };
+
+        pub fn register(
+            waker: *Waker,
+            Context: type,
+            context: Context,
+            comptime callback: fn (Context, *Waker) void,
+            scheduler: *Scheduler,
+        ) void {
+            assert(waker.init_state.swap(.initializing, .acquire) == .uninited);
+            waker.task = .init(Context, context, struct {
+                fn wrapper(ctx: Context, task: *Task) void {
+                    const wkr: *Waker = @alignCast(@fieldParentPtr("task", task));
+                    callback(ctx, wkr);
+                }
+            }.wrapper, scheduler);
+            assert(waker.init_state.swap(.inited, .release) == .initializing);
+        }
+
+        pub fn wake(waker: *Waker) void {
+            if (waker.init_state.load(.monotonic) == .inited) {
+                waker.task.ready();
+            }
+        }
     };
 
     pub fn init(
@@ -79,22 +130,6 @@ pub const Task = struct {
             }
         };
         return &Erased.wrapper;
-    }
-};
-
-pub const Waker = struct {
-    wakey: std.atomic.Value(?*Task) = .init(null),
-
-    pub fn register(
-        waker: *Waker,
-        task: *Task,
-    ) void {
-        assert(waker.wakey.swap(task, .release) == null);
-    }
-
-    pub fn wake(waker: *Waker) void {
-        const task = waker.wakey.load(.monotonic) orelse return;
-        task.ready();
     }
 };
 

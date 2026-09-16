@@ -23,7 +23,7 @@ pub const hw_def: hw.Definition = .{
     },
 
     .imu = .{
-        .tick_period = .from_hz(1000),
+        .tick_rate = .@"1kHz",
         .type = .lsm6dsv,
         .spi = .{
             .instance = .num(1),
@@ -48,13 +48,14 @@ pub const hw_def: hw.Definition = .{
         },
     },
 
-    .i2c = .{
+    .i2c_sensor = .{
         .instance = .num(0),
         .baud_rate = 400_000,
         .pin_sda = .num(32),
         .pin_scl = .num(33),
     },
     .battery = .{
+        .tick_rate = .@"10Hz",
         .type = .ina226,
         .shunt_resistance = 0.002,
         .max_current = 50.0,

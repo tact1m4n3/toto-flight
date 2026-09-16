@@ -345,7 +345,7 @@ pub fn Lsm6dsvGeneric(
             // depends on the device variant.
             var buf: [13]u8 = @splat(0);
             buf[0] = @backingInt(Register.outx_l_g) | SPI_READ;
-            try self.spi.transceive(&buf);
+            try self.spi.transceive_in_place(&buf);
 
             const gx = std.mem.readInt(i16, buf[1..3], .little);
             const gy = std.mem.readInt(i16, buf[3..5], .little);
@@ -383,12 +383,12 @@ pub fn Lsm6dsvGeneric(
 
         fn raw_write(self: *Self, reg: Register, value: u8) !void {
             var buf: [2]u8 = .{ @backingInt(reg) & ~SPI_READ, value };
-            try self.spi.transceive(&buf);
+            try self.spi.transceive_in_place(&buf);
         }
 
         fn raw_read(self: *Self, reg: Register) !u8 {
             var value: [2]u8 = .{ @backingInt(reg) | SPI_READ, 0 };
-            try self.spi.transceive(&value);
+            try self.spi.transceive_in_place(&value);
             return value[1];
         }
 

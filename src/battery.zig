@@ -2,8 +2,8 @@ const std = @import("std");
 
 const hw = @import("hw.zig");
 const Scheduler = @import("Scheduler.zig");
+const Task = Scheduler.Task;
 const Message = Scheduler.Message;
-const Receiver = Scheduler.Receiver;
 const time = @import("time.zig");
 const drivers = @import("drivers.zig");
 
@@ -30,18 +30,15 @@ const Driver = switch (cfg.type) {
 };
 
 pub const Battery = struct {
-    const ticker: hw.Ticker = .@"10Hz";
-
-    rcv_tick: Receiver(time.Absolute) = undefined,
-
     driver: Driver,
+    last_tick: ?time.Absolute = null,
     prev_current: f32 = 0.0,
     capacity_used: f32 = 0.0,
 
     pub fn init(battery: *Battery, scheduler: *Scheduler) void {
         battery.* = .{
             .driver = switch (cfg.type) {
-                .ina226 => Driver.init(hw.i2c, drivers.battery.ina226.DEFAULT_SLAVE_ADDRESS, hw.clock, .{
+                .ina226 => Driver.init(hw.I2C.get(.sensor), drivers.battery.ina226.DEFAULT_SLAVE_ADDRESS, hw.Clock.instance, .{
                     .shunt_resistance = cfg.shunt_resistance,
                     .current_lsb = cfg.max_current / 32768.0,
                 }) catch |err| {
@@ -51,10 +48,20 @@ pub const Battery = struct {
             },
         };
 
-        ticker.subscribe(&battery.rcv_tick, *Battery, battery, tick_callback, scheduler);
+        hw.InterruptPin.battery.subscribe(
+            *Battery,
+            battery,
+            tick_callback,
+            scheduler,
+        );
     }
 
-    pub fn tick_callback(battery: *Battery, _: time.Absolute) void {
+    pub fn tick_callback(battery: *Battery) void {
+        const now = hw.get_time_since_boot();
+        const last_tick = battery.last_tick orelse now;
+        const dt = now.diff(last_tick);
+        battery.last_tick = now;
+
         const voltage, const current = switch (cfg.type) {
             .ina226 => blk: {
                 const voltage = battery.driver.read_bus_voltage() catch |err| {
@@ -70,7 +77,7 @@ pub const Battery = struct {
         };
 
         {
-            const dt_s = comptime ticker.get_period().to_secs_f32();
+            const dt_s = dt.to_secs_f32();
             const dt_h = dt_s / 3600.0;
             const instant_current_A = (battery.prev_current + current) / 2.0;
             const instant_current_mA = instant_current_A * 1000.0;

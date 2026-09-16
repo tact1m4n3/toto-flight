@@ -24,17 +24,15 @@ pub const Rx = struct {
         .crsf => CRSF_Parser,
     } = .{},
 
-    task: Task = undefined,
-
     pub fn init(rx: *Rx, scheduler: *Scheduler) void {
         rx.* = .{};
 
-        hw.UART_RX.receiver.subscribe(&rx.task, *Rx, rx, switch (hw.def.receiver.protocol) {
-            .crsf => receive_byte_crsf,
+        hw.UART.get(.receiver).subscribe(*Rx, rx, switch (hw.def.receiver.protocol) {
+            .crsf => parse_byte_crsf,
         }, scheduler);
     }
 
-    fn receive_byte_crsf(rx: *Rx, byte: u8) void {
+    fn parse_byte_crsf(rx: *Rx, byte: u8) void {
         const maybe_packet = rx.parser.push_byte(byte) catch |err| {
             log.warn("failed to parse crsf packet: {t}", .{err});
             return;

@@ -20,7 +20,7 @@ pub var msg_actuator_output: Message(ActuatorOutput) = .{};
 
 pub const Loop = struct {
     rcv_tick_rate: Receiver(imu.Data) = undefined,
-    rcv_tick_nav: Receiver(time.Absolute) = undefined,
+    rcv_tick_nav: Receiver(void) = undefined,
     rcv_command: Receiver(Command) = undefined,
 
     last_rate_tick: time.Absolute = .from_us(0),
@@ -50,7 +50,7 @@ pub const Loop = struct {
             scheduler,
         );
 
-        hw.Ticker.@"100Hz".subscribe(
+        hw.ticker(.@"100Hz").subscribe(
             &loop.rcv_tick_nav,
             *Loop,
             loop,
@@ -100,7 +100,7 @@ pub const Loop = struct {
         }
     }
 
-    fn nav_tick_callback(control: *Loop, _: time.Absolute) void {
+    fn nav_tick_callback(control: *Loop, _: void) void {
         const MIN_COMMAND_PERIOD: time.Duration = .from_hz(5);
         const FAILSAFE_PROBATION_DURATION: time.Duration = .from_ms(500);
         const FAILSAFE_RECOVERY_DURATION: time.Duration = .from_ms(1000);

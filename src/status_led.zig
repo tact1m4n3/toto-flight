@@ -8,14 +8,15 @@ const time = @import("time.zig");
 const drivers = @import("drivers.zig");
 
 pub const StatusLed = struct {
+    rcv_tick: Receiver(void) = undefined,
+
     counter: usize = 0,
     lit: bool = true,
-    rcv_tick: Receiver(time.Absolute) = undefined,
 
     pub fn init(status_led: *StatusLed, scheduler: *Scheduler) void {
         status_led.* = .{};
 
-        hw.Ticker.@"10Hz".subscribe(
+        hw.ticker(.@"10Hz").subscribe(
             &status_led.rcv_tick,
             *StatusLed,
             status_led,
@@ -24,7 +25,7 @@ pub const StatusLed = struct {
         );
     }
 
-    pub fn tick_callback(status_led: *StatusLed, _: time.Absolute) void {
+    pub fn tick_callback(status_led: *StatusLed, _: void) void {
         const status = control.msg_status.get() orelse return;
 
         const color: drivers.Color = if (status.armed)
