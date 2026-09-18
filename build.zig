@@ -33,7 +33,14 @@ pub fn build(b: *std.Build) void {
         mavgen_run.addFileArg(b.path("src/protocols/mavlink/generated.zig"));
         mavgen_run.addArg("common.xml");
 
-        b.getInstallStep().dependOn(&mavgen_run.step);
+        const fmt_run = b.addFmt(.{
+            .paths = &.{
+                b.path("src/protocols/mavlink/generated.zig"),
+            },
+        });
+        fmt_run.step.dependOn(&mavgen_run.step);
+
+        b.getInstallStep().dependOn(&fmt_run.step);
 
         // we don't want to build anything else, just generating
         return;

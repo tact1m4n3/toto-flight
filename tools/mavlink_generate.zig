@@ -200,8 +200,6 @@ pub fn gen_file(io: Io, data: *Data, output_file: []const u8) !void {
             const bit_size = resolved.size() * @bitSizeOf(u8);
             const zig_type = resolved.to_zig_type();
 
-            try writer.writeByte('\n');
-
             if (@"enum".description.len > 0) {
                 try gen_docs(writer, "    ", @"enum".description);
             }
@@ -294,7 +292,6 @@ pub fn gen_file(io: Io, data: *Data, output_file: []const u8) !void {
 
         var it = data.messages.valueIterator();
         while (it.next()) |msg| {
-            try writer.writeByte('\n');
             if (msg.description.len > 0) {
                 try gen_docs(writer, "    ", msg.description);
             }
