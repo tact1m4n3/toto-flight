@@ -5,6 +5,7 @@
     .minimum_zig_version = "0.17.0-dev.1936+5a625d5f3",
     .dependencies = .{
         .microzig = .{
+            // TODO: temp
             .path = "../microzig",
             .lazy = true,
         },
@@ -12,11 +13,26 @@
             .path = "vendor/jsbsim",
             .lazy = true,
         },
+
+        // for mavlink message generation
+        .xml = .{
+            // TODO: temp
+            .path = "../zig-xml",
+            // .url = "git+https://github.com/ianprime0509/zig-xml",
+            .lazy = true,
+        },
+        .mavlink = .{
+            .url = "git+https://github.com/mavlink/mavlink#57009affe902344901f470fb3d3b8bda17595499",
+            .hash = "N-V-__8AACk2FgAu_HFhaNSxLRv7YJsO3FUxO3Gzf_-AwuyR",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "arch",
+        "README.md",
         "src",
+        "tools",
+        "vendor",
     },
 }

@@ -62,8 +62,8 @@ pub fn StorageGeneric(tables: anytype) type {
                 const maybe_params, const version = @field(tables, field_name).get_with_version();
                 if (@field(store.versions, field_name) != version) {
                     if (maybe_params) |params| {
-                        std.log.info("storing something", .{});
                         const key = comptime generate_key(field_name);
+                        log.info("storing params for {s}", .{key});
                         store.driver.store(key, params) catch |err| {
                             log.warn("failed to store {s} params: {}", .{ field_name, err });
                         };

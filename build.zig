@@ -6,6 +6,39 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const board = b.option(Board, "board", "Which board to build for") orelse .madflight_rp2350;
 
+    const do_mavgen = b.option(bool, "mavgen", "Generate MAVLink messages") orelse false;
+    if (do_mavgen) {
+        const xml_dep = b.lazyDependency("xml", .{
+            .target = target,
+            .optimize = .safe,
+        }) orelse return;
+        const xml_mod = xml_dep.module("xml");
+
+        const mavlink_dep = b.lazyDependency("mavlink", .{}) orelse return;
+
+        const mavgen_exe = b.addExecutable(.{
+            .name = "mavlink_generate",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("tools/mavlink_generate.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "xml", .module = xml_mod },
+                },
+            }),
+        });
+
+        const mavgen_run = b.addRunArtifact(mavgen_exe);
+        mavgen_run.addFileArg(mavlink_dep.path("message_definitions/v1.0"));
+        mavgen_run.addFileArg(b.path("src/protocols/mavlink/generated.zig"));
+        mavgen_run.addArg("common.xml");
+
+        b.getInstallStep().dependOn(&mavgen_run.step);
+
+        // we don't want to build anything else, just generating
+        return;
+    }
+
     const platform_options = b.addOptions();
     platform_options.addOption(Board, "board", board);
     const platform_options_mod = platform_options.createModule();

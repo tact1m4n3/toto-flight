@@ -35,7 +35,6 @@ pub var spi_imu: SPI = undefined;
 
 pub fn init() void {
     RTT.init();
-    rtt_logger = RTT.writer(0, &.{});
 
     log.info("initializing hardware", .{});
 
@@ -56,8 +55,11 @@ pub fn init() void {
     log.info("hardware initialization done", .{});
 }
 
-const RTT = cpu.rtt.RTT(.{});
-var rtt_logger: ?RTT.Writer = null;
+const RTT = cpu.rtt.RTT(.{
+    // TODO: the default locks do something weird with priorities, look into it
+    .exclusive_access = null,
+});
+var rtt_log_writer = RTT.writer(0, &.{});
 
 pub fn log_fn(
     comptime level: std.log.Level,
@@ -70,13 +72,14 @@ pub fn log_fn(
         .default => ": ",
         else => " (" ++ @tagName(scope) ++ "): ",
     };
-    if (rtt_logger) |*writer| {
-        const current_time = get_time_since_boot();
-        const seconds = current_time.to_us() / std.time.us_per_s;
-        const microseconds = current_time.to_us() % std.time.us_per_s;
 
-        writer.interface.print(prefix ++ format ++ "\r\n", .{ seconds, microseconds } ++ args) catch {};
-    }
+    const current_time = get_time_since_boot();
+    const seconds = current_time.to_us() / std.time.us_per_s;
+    const microseconds = current_time.to_us() % std.time.us_per_s;
+
+    const cs = enter_critical_section();
+    defer cs.leave();
+    rtt_log_writer.interface.print(prefix ++ format ++ "\r\n", .{ seconds, microseconds } ++ args) catch {};
 }
 
 pub fn enter_critical_section() CriticalSection {
@@ -101,7 +104,7 @@ pub fn get_time_since_boot() Absolute {
 
 const schedulers_info: std.EnumArray(hw.SchedulerPriority, struct {
     cpu_prio: cpu.interrupt.Priority,
-    interrupt: microzig.cpu.ExternalInterrupt,
+    interrupt: microzig.cpu.Interrupt,
 }) = .init(.{
     .realtime = .{
         .cpu_prio = @fromBackingInt(0),
@@ -442,8 +445,8 @@ pub const Clock = struct {
 };
 
 pub const Flash = struct {
-    // TODO: if we ever do flash dma transfers we should wait for those to
-    // finish in addition to critical sections
+    // TODO: we must also wait for flash dma transfers to finish in addition to
+    // critical sections
 
     const BASE = rp2xxx.flash.XIP_BASE;
     const SIZE = hw.def.flash.size;

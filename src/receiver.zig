@@ -12,7 +12,7 @@ const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
 const Task = Scheduler.Task;
-const CRSF_Parser = @import("parsers/CRSF.zig");
+const crsf = @import("protocols/crsf.zig");
 
 const log = std.log.scoped(.receiver);
 
@@ -21,7 +21,7 @@ pub var msg_command: Message(control.Command) = .{};
 
 pub const Rx = struct {
     parser: switch (hw.def.receiver.protocol) {
-        .crsf => CRSF_Parser,
+        .crsf => crsf.Parser,
     } = .{},
 
     pub fn init(rx: *Rx, scheduler: *Scheduler) void {
@@ -46,13 +46,13 @@ pub const Rx = struct {
                         // NOTE: can't overflow: 2 ^ 11 * 2 ^ 10 < 2 ^ 32
                         value_us.* = @truncate(@as(u32, value_crsf) * 1024 / 1639 + 881);
                     }
-                    // log.info("received channels: {any}", .{channels_us});
+                    log.info("received channels: {any}", .{channels_us});
                     const channels: Channels = .init(.aetr1234, &channels_us);
                     msg_channels.publish(channels);
                 },
                 .link_statistics => |ls| {
-                    _ = ls;
-                    // log.info("received link stats: {any}", .{ls});
+                    // _ = ls;
+                    log.info("received link stats: {any}", .{ls});
                 },
             }
         }

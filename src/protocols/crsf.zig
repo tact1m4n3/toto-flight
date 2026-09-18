@@ -1,11 +1,5 @@
 const std = @import("std");
 
-const CRSF = @This();
-
-state: State = .wait_for_sync,
-crc: std.hash.crc.@"CRC-8/DVB-S2" = .init(),
-payload_buf: [MAX_PAYLOAD_LEN]u8 = undefined,
-
 const SYNC = 0xC8;
 const MAX_PACKET_LEN = 64;
 
@@ -14,83 +8,89 @@ const MAX_LEN_BYTE = MAX_PACKET_LEN - 2;
 
 const MAX_PAYLOAD_LEN = MAX_PACKET_LEN - 4;
 
-pub const State = union(enum) {
-    /// Wait for the sync byte.
-    wait_for_sync,
-    /// Read length byte.
-    read_len,
-    /// Read type byte.
-    read_type: struct {
-        payload_len: u8,
-    },
-    /// Read payload and checksum.
-    read_payload: struct {
-        len: u8,
-        type: PacketType,
-        index: u8,
-    },
-};
+pub const Parser = struct {
+    state: State = .wait_for_sync,
+    crc: std.hash.crc.@"CRC-8/DVB-S2" = .init(),
+    payload_buf: [MAX_PAYLOAD_LEN]u8 = undefined,
 
-pub const PayloadError = error{
-    InvalidPayloadLength,
-    InvalidPayloadData,
-    UnimplementedPacket,
-};
-
-pub const Error = error{
-    InvalidChecksum,
-    InvalidLengthByte,
-    InvalidTypeByte,
-} || PayloadError;
-
-pub fn push_byte(parser: *CRSF, byte: u8) Error!?Packet {
-    errdefer parser.state = .wait_for_sync;
-
-    switch (parser.state) {
-        .wait_for_sync => if (byte == SYNC) {
-            parser.state = .read_len;
+    pub const State = union(enum) {
+        /// Wait for the sync byte.
+        wait_for_sync,
+        /// Read length byte.
+        read_len,
+        /// Read type byte.
+        read_type: struct {
+            payload_len: u8,
         },
-        .read_len => if (byte >= MIN_LEN_BYTE and byte <= MAX_LEN_BYTE) {
-            parser.state = .{ .read_type = .{ .payload_len = byte - 2 } };
-        } else {
-            return error.InvalidLengthByte;
+        /// Read payload and checksum.
+        read_payload: struct {
+            len: u8,
+            type: PacketType,
+            index: u8,
         },
-        .read_type => |read_type_state| {
-            parser.crc.update(&.{byte});
-            parser.state = .{ .read_payload = .{
-                .len = read_type_state.payload_len,
-                .type = std.enums.fromInt(PacketType, byte) orelse {
-                    return error.InvalidTypeByte;
-                },
-                .index = 0,
-            } };
-        },
-        .read_payload => |read_payload_state| if (read_payload_state.index < read_payload_state.len) {
-            // std.log.debug("payload index: {} len: {}", .{read_payload_state.index, read_payload_state.len});
-            parser.payload_buf[read_payload_state.index] = byte;
-            parser.crc.update(&.{byte});
-            parser.state = .{ .read_payload = .{
-                .index = read_payload_state.index + 1,
-                .len = read_payload_state.len,
-                .type = read_payload_state.type,
-            } };
-        } else {
-            const checksum = parser.crc.final();
-            parser.crc = .init();
+    };
 
-            if (byte != checksum) {
-                return error.InvalidChecksum;
-            }
+    pub const PayloadError = error{
+        InvalidPayloadLength,
+        InvalidPayloadData,
+        UnimplementedPacket,
+    };
 
-            const packet: Packet = try .parse(read_payload_state.type, parser.payload_buf[0..read_payload_state.len]);
+    pub const Error = error{
+        InvalidChecksum,
+        InvalidLengthByte,
+        InvalidTypeByte,
+    } || PayloadError;
 
-            parser.state = .wait_for_sync;
-            return packet;
-        },
+    pub fn push_byte(parser: *Parser, byte: u8) Error!?Packet {
+        errdefer parser.state = .wait_for_sync;
+
+        switch (parser.state) {
+            .wait_for_sync => if (byte == SYNC) {
+                parser.state = .read_len;
+            },
+            .read_len => if (byte >= MIN_LEN_BYTE and byte <= MAX_LEN_BYTE) {
+                parser.state = .{ .read_type = .{ .payload_len = byte - 2 } };
+            } else {
+                return error.InvalidLengthByte;
+            },
+            .read_type => |read_type_state| {
+                parser.crc.update(&.{byte});
+                parser.state = .{ .read_payload = .{
+                    .len = read_type_state.payload_len,
+                    .type = std.enums.fromInt(PacketType, byte) orelse {
+                        return error.InvalidTypeByte;
+                    },
+                    .index = 0,
+                } };
+            },
+            .read_payload => |read_payload_state| if (read_payload_state.index < read_payload_state.len) {
+                // std.log.debug("payload index: {} len: {}", .{read_payload_state.index, read_payload_state.len});
+                parser.payload_buf[read_payload_state.index] = byte;
+                parser.crc.update(&.{byte});
+                parser.state = .{ .read_payload = .{
+                    .index = read_payload_state.index + 1,
+                    .len = read_payload_state.len,
+                    .type = read_payload_state.type,
+                } };
+            } else {
+                const checksum = parser.crc.final();
+                parser.crc = .init();
+
+                if (byte != checksum) {
+                    return error.InvalidChecksum;
+                }
+
+                const packet: Packet = try .parse(read_payload_state.type, parser.payload_buf[0..read_payload_state.len]);
+
+                parser.state = .wait_for_sync;
+                return packet;
+            },
+        }
+
+        return null;
     }
-
-    return null;
-}
+};
 
 pub const PacketType = enum(u8) {
     gps = 0x02,
@@ -127,7 +127,7 @@ pub const Packet = union(enum) {
     rc_channels_packed: [16]u11,
     link_statistics: LinkStatistics,
 
-    pub fn parse(typ: PacketType, payload: []const u8) PayloadError!Packet {
+    pub fn parse(typ: PacketType, payload: []const u8) Parser.PayloadError!Packet {
         return switch (typ) {
             .rc_channels_packed => blk: {
                 if (payload.len < 16 * @bitSizeOf(u11) / 8) return error.InvalidPayloadLength;
@@ -185,7 +185,7 @@ pub const Packet = union(enum) {
 };
 
 fn test_parse_packet(expected: Packet, data: []const u8) !void {
-    var parser: CRSF = .{};
+    var parser: Parser = .{};
 
     for (data) |byte| {
         try std.testing.expectEqual(null, parser.push_byte(byte));

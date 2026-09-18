@@ -1,10 +1,6 @@
 const hw = @import("hw.zig");
 const Message = @import("Scheduler.zig").Message;
 
-pub fn get_time_since_boot() Absolute {
-    return hw.chip.get_time_since_boot();
-}
-
 pub const Absolute = enum(u64) {
     _,
 

@@ -4,6 +4,6 @@ comptime {
     _ = @import("receiver.zig");
     _ = @import("drivers/storage.zig");
     _ = @import("drivers/imu/lsm6dsv.zig");
-    _ = @import("parsers/CRSF.zig");
+    _ = @import("protocols/crsf.zig");
     _ = @import("utils/ring_buffer.zig");
 }
