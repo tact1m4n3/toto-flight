@@ -37,10 +37,10 @@ pub const hw_def: hw.Definition = .{
     },
 
     .receiver = .{
-        .protocol = .crsf,
+        .protocol = .mavlink,
         .uart = .{
             .instance = .{ .uart = .num(0) },
-            .baud_rate = 115_200,
+            .baud_rate = 460800,
             .pin_tx = .num(0),
             .pin_rx = .num(1),
             .buf_size_tx = 128,

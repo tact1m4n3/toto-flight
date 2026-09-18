@@ -160,7 +160,7 @@ pub fn gen_file(io: Io, data: *Data, output_file: []const u8) !void {
             if (msg.description.len > 0) {
                 try gen_docs(writer, "    ", msg.description);
             }
-            try writer.print("    {f} = 0x{X:0>4},\n", .{ std.zig.fmtId(msg.name), msg.id });
+            try writer.print("    {f} = 0x{X:0>6},\n", .{ std.zig.fmtId(msg.name), msg.id });
         }
 
         try writer.writeAll(
@@ -404,7 +404,7 @@ pub const Data = struct {
 
     pub const Message = struct {
         name: []const u8,
-        id: u32,
+        id: u24,
         description: []const u8,
         fields: []Field,
         extension_fields_start: usize,
@@ -747,7 +747,7 @@ pub const Parser = struct {
 
         const id_idx = reader.attributeIndex("id") orelse return error.MessageNoId;
         const id_str = try reader.attributeValue(id_idx);
-        const id = std.fmt.parseInt(u32, id_str, 10) catch return error.MessageInvalidId;
+        const id = std.fmt.parseInt(u24, id_str, 10) catch return error.MessageInvalidId;
 
         std.log.debug("visiting message {s} id = {}", .{ name, id });
 

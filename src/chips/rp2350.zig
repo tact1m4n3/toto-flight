@@ -57,7 +57,7 @@ pub fn init() void {
 
 const RTT = cpu.rtt.RTT(.{
     // TODO: the default locks do something weird with priorities, look into it
-    .exclusive_access = null,
+    // .exclusive_access = null,
 });
 var rtt_log_writer = RTT.writer(0, &.{});
 

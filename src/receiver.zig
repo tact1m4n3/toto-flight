@@ -13,6 +13,7 @@ const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
 const Task = Scheduler.Task;
 const crsf = @import("protocols/crsf.zig");
+const mavlink = @import("protocols/mavlink.zig");
 
 const log = std.log.scoped(.receiver);
 
@@ -22,6 +23,7 @@ pub var msg_command: Message(control.Command) = .{};
 pub const Rx = struct {
     parser: switch (hw.def.receiver.protocol) {
         .crsf => crsf.Parser,
+        .mavlink => mavlink.Parser,
     } = .{},
 
     pub fn init(rx: *Rx, scheduler: *Scheduler) void {
@@ -29,6 +31,7 @@ pub const Rx = struct {
 
         hw.UART.get(.receiver).subscribe(*Rx, rx, switch (hw.def.receiver.protocol) {
             .crsf => parse_byte_crsf,
+            .mavlink => parse_byte_mavlink,
         }, scheduler);
     }
 
@@ -55,6 +58,22 @@ pub const Rx = struct {
                     log.info("received link stats: {any}", .{ls});
                 },
             }
+        }
+    }
+
+    fn parse_byte_mavlink(rx: *Rx, byte: u8) void {
+        const maybe_packet = rx.parser.push_byte(byte) catch |err| {
+            switch (err) {
+                error.UnknownMessageId, error.UnimplementedMessage => {
+                    log.warn("unknown message id: 0x{x:0>6}", .{rx.parser.packet.get_msgid()});
+                },
+                else => log.warn("failed to parse mavlink packet: {t}", .{err}),
+            }
+            return;
+        };
+
+        if (maybe_packet) |packet| {
+            log.info("parser: {any}", .{packet});
         }
     }
 };

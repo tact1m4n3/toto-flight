@@ -192,6 +192,7 @@ pub const Definition = struct {
     receiver: struct {
         protocol: enum {
             crsf,
+            mavlink,
         },
         uart: UART.Config,
     },
