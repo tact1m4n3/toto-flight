@@ -21,21 +21,28 @@ pub var msg_channels: Message(Channels) = .{};
 pub var msg_command: Message(control.Command) = .{};
 
 pub const Rx = struct {
-    parser: switch (hw.def.receiver.protocol) {
-        .crsf => crsf.Parser,
-        .mavlink => mavlink.Parser,
-    } = .{},
+    inner: switch (hw.def.receiver.protocol) {
+        .crsf => Rx_CRSF,
+        .mavlink => RxMavlink,
+    } = undefined,
 
     pub fn init(rx: *Rx, scheduler: *Scheduler) void {
+        rx.inner.init(scheduler);
+    }
+};
+
+pub const Rx_CRSF = struct {
+    rcv_tick: Receiver(void) = undefined,
+
+    parser: crsf.Parser = .{},
+
+    pub fn init(rx: *Rx_CRSF, scheduler: *Scheduler) void {
         rx.* = .{};
 
-        hw.UART.get(.receiver).subscribe(*Rx, rx, switch (hw.def.receiver.protocol) {
-            .crsf => parse_byte_crsf,
-            .mavlink => parse_byte_mavlink,
-        }, scheduler);
+        hw.UART.get(.receiver).subscribe(*Rx_CRSF, rx, receive_callback, scheduler);
     }
 
-    fn parse_byte_crsf(rx: *Rx, byte: u8) void {
+    fn receive_callback(rx: *Rx_CRSF, byte: u8) void {
         const maybe_packet = rx.parser.push_byte(byte) catch |err| {
             log.warn("failed to parse crsf packet: {t}", .{err});
             return;
@@ -49,19 +56,85 @@ pub const Rx = struct {
                         // NOTE: can't overflow: 2 ^ 11 * 2 ^ 10 < 2 ^ 32
                         value_us.* = @truncate(@as(u32, value_crsf) * 1024 / 1639 + 881);
                     }
-                    log.info("received channels: {any}", .{channels_us});
+                    // log.info("received channels: {any}", .{channels_us});
                     const channels: Channels = .init(.aetr1234, &channels_us);
                     msg_channels.publish(channels);
                 },
                 .link_statistics => |ls| {
-                    // _ = ls;
-                    log.info("received link stats: {any}", .{ls});
+                    _ = ls;
+                    // log.info("received link stats: {any}", .{ls});
                 },
             }
         }
     }
+};
 
-    fn parse_byte_mavlink(rx: *Rx, byte: u8) void {
+pub const RxMavlink = struct {
+    // TODO: PARAM_REQUEST_LIST
+    //
+    // IDK if we need:
+    // TODO: COMPONENT_INFORMATION
+    // TODO: GIMBAL_MANAGER_INFORMATION
+    //
+    // TODO: separate code into microservices
+
+    const uart = hw.UART.get(.receiver);
+    const send_tick_rate: hw.TickRate = .@"100Hz";
+
+    const sysid = 1;
+    const capabilities: mavlink.enums.MAV_PROTOCOL_CAPABILITY = .{
+        .MAV_PROTOCOL_CAPABILITY_MAVLINK2 = true,
+        .MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE = true,
+    };
+    const flight_modes: []const struct {
+        name: ?[]const u8 = null,
+        standard: mavlink.enums.MAV_STANDARD_MODE = .MAV_STANDARD_MODE_NON_STANDARD,
+        properties: mavlink.enums.MAV_MODE_PROPERTY,
+    } = &.{
+        .{ .name = "manual", .properties = .{ .MAV_MODE_PROPERTY_ADVANCED = true } },
+        .{ .name = "rate", .properties = .{ .MAV_MODE_PROPERTY_ADVANCED = true } },
+        .{ .name = "angle", .properties = .{ .MAV_MODE_PROPERTY_ADVANCED = true } },
+        .{ .standard = .MAV_STANDARD_MODE_CRUISE, .properties = .{ .MAV_MODE_PROPERTY_AUTO_MODE = true } },
+    };
+
+    rcv_tick: Receiver(void) = undefined,
+
+    parser: mavlink.Parser = .{},
+
+    tick_count: u32 = 0,
+    gcs_connected: bool = false,
+    heartbeat_seq: u8 = 0,
+    one_shot: packed struct {
+        autopilot_version: bool = false,
+        mission_count: bool = false,
+    } = .{},
+
+    send_available_modes: SendAvailableModes = .idle,
+
+    const SendAvailableModes = struct {
+        specific: bool,
+        current_index: u8,
+        state: enum {
+            idle,
+            ack,
+            send,
+        },
+
+        pub const idle: SendAvailableModes = .{
+            .specific = false,
+            .current_index = 0,
+            .state = .idle,
+        };
+    };
+
+    pub fn init(rx: *RxMavlink, scheduler: *Scheduler) void {
+        rx.* = .{};
+
+        uart.subscribe(*RxMavlink, rx, receive_callback, scheduler);
+        hw.ticker(send_tick_rate).subscribe(&rx.rcv_tick, *RxMavlink, rx, send_callback, scheduler);
+    }
+
+    fn receive_callback(rx: *RxMavlink, byte: u8) void {
         const maybe_packet = rx.parser.push_byte(byte) catch |err| {
             switch (err) {
                 error.UnknownMessageId, error.UnimplementedMessage => {
@@ -73,10 +146,205 @@ pub const Rx = struct {
         };
 
         if (maybe_packet) |packet| {
-            log.info("parser: {any}", .{packet});
+            switch (packet) {
+                .HEARTBEAT => |heartbeat| {
+                    if (heartbeat.type == .MAV_TYPE_GCS and !rx.gcs_connected) {
+                        log.info("gcs connected", .{});
+                        rx.gcs_connected = true;
+                    }
+                },
+                .COMMAND_LONG => |command| switch (command.command) {
+                    .MAV_CMD_REQUEST_MESSAGE => {
+                        if (std.enums.fromInt(mavlink.MessageId, std.math.lossyCast(u24, command.param1))) |id| {
+                            switch (id) {
+                                .AUTOPILOT_VERSION => rx.one_shot.autopilot_version = true,
+                                .AVAILABLE_MODES => if (rx.send_available_modes.state == .idle) {
+                                    const index = std.math.lossyCast(u8, command.param2);
+                                    rx.send_available_modes = .{
+                                        .specific = index != 0,
+                                        .current_index = if (index != 0) index else 1,
+                                        .state = .ack,
+                                    };
+                                },
+                                else => log.warn("unknown message request: {t}", .{id}),
+                            }
+                        }
+                    },
+                    else => std.log.warn("unknown command: {t}", .{command.command}),
+                },
+                .MISSION_REQUEST_LIST => {
+                    // TODO: state machine for mission download
+                    rx.one_shot.mission_count = true;
+                },
+                else => {},
+            }
         }
     }
+
+    fn send_callback(rx: *RxMavlink, _: void) void {
+        if (!rx.gcs_connected) return;
+
+        defer rx.tick_count +%= 1;
+
+        if (rx.tick_count % 100 == 0) {
+            send_message(&.{ .HEARTBEAT = .{
+                .custom_mode = 0,
+                .type = .MAV_TYPE_FIXED_WING,
+                .autopilot = .MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY,
+                .base_mode = .{},
+                .system_status = .MAV_STATE_STANDBY,
+                .mavlink_version = 3,
+            } }, .{
+                .seq = rx.heartbeat_seq,
+            }) catch return;
+            rx.heartbeat_seq +%= 1;
+        }
+
+        if (rx.one_shot.autopilot_version) {
+            send_message(&.{
+                .AUTOPILOT_VERSION = .{
+                    .capabilities = capabilities,
+
+                    // Unused for now
+                    .flight_custom_version = @splat(0),
+                    .middleware_custom_version = @splat(0),
+                    .os_custom_version = @splat(0),
+                    .uid = 0,
+                    .flight_sw_version = 0,
+                    .middleware_sw_version = 0,
+                    .os_sw_version = 0,
+                    .board_version = 0,
+                    .vendor_id = 0,
+                    .product_id = 0,
+                },
+            }, .{}) catch return;
+            rx.one_shot.autopilot_version = false;
+        }
+
+        if (rx.one_shot.mission_count) {
+            send_message(&.{ .MISSION_COUNT = .{
+                .count = 0,
+                .target_system = sysid,
+                .target_component = @backingInt(mavlink.enums.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1),
+            } }, .{}) catch return;
+            rx.one_shot.mission_count = false;
+        }
+
+        send_available_modes: switch (rx.send_available_modes.state) {
+            .idle => {},
+            .ack => {
+                if (rx.send_available_modes.current_index == 0 or rx.send_available_modes.current_index > flight_modes.len) {
+                    send_message(&.{ .COMMAND_ACK = .{
+                        .command = .MAV_CMD_REQUEST_MESSAGE,
+                        .result = .MAV_RESULT_DENIED,
+                    } }, .{}) catch return;
+                    log.warn("invalid available modes request: {d}", .{rx.send_available_modes.current_index});
+                    rx.send_available_modes.state = .idle;
+                    break :send_available_modes;
+                } else {
+                    send_message(&.{ .COMMAND_ACK = .{
+                        .command = .MAV_CMD_REQUEST_MESSAGE,
+                        .result = .MAV_RESULT_ACCEPTED,
+                    } }, .{}) catch return;
+                    rx.send_available_modes.state = .send;
+                }
+            },
+            .send => {
+                assert(rx.send_available_modes.current_index > 0);
+                assert(rx.send_available_modes.current_index <= flight_modes.len);
+
+                const mode = &flight_modes[rx.send_available_modes.current_index - 1];
+                var name: [35]u8 = @splat(0);
+                {
+                    const src_name = mode.name orelse "";
+                    std.mem.copyForwards(u8, name[0..src_name.len], src_name);
+                }
+                send_message(&.{
+                    .AVAILABLE_MODES = .{
+                        .mode_name = @bitCast(name),
+                        .custom_mode = 0,
+                        .properties = mode.properties,
+                        .number_modes = @truncate(flight_modes.len),
+                        .mode_index = rx.send_available_modes.current_index,
+                        .standard_mode = mode.standard,
+                    },
+                }, .{}) catch return;
+
+                if (rx.send_available_modes.current_index == flight_modes.len or
+                    rx.send_available_modes.specific)
+                {
+                    rx.send_available_modes.state = .idle;
+                } else {
+                    rx.send_available_modes.current_index += 1;
+                    continue :send_available_modes .send;
+                }
+            },
+        }
+    }
+
+    fn send_message(message: *const mavlink.OutgoingMessage, options: struct {
+        seq: u8 = 0,
+    }) !void {
+        var buf: [mavlink.MAX_PACKET_LEN]u8 = undefined;
+        const len = mavlink.serialize(
+            &buf,
+            message,
+            .{
+                .seq = options.seq,
+                .sysid = sysid,
+                .compid = @backingInt(mavlink.enums.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1),
+            },
+        ) catch unreachable;
+        try uart.write(buf[0..len]);
+    }
 };
+
+// pub const Periodic = struct {
+//     const max_messages = 10;
+//     const Item = struct {
+//         offset: u32,
+//         period_in_ticks: u32,
+//         message_id: mavlink.MessageId,
+//         ready: bool = false,
+//     };
+//
+//     tick_period: time.Duration,
+//     count: u32 = 0,
+//     messages: bounded.Array(Item, max_messages) = .empty,
+//
+//     pub fn add(periodic: *Periodic, message_id: mavlink.MessageId, period: time.Duration) !void {
+//         const period_in_ticks: u32 = @truncate(period.to_us() / periodic.tick_period.to_us());
+//         if (period_in_ticks == 0) {
+//             return error.PeriodTooSmall;
+//         }
+//
+//         // trick to sparse the messages over the period, so they don't all
+//         // get sent at the same time
+//         const offset = periodic.count % period_in_ticks;
+//         periodic.count +%= 1;
+//
+//         for (periodic.messages.items()) |*item| {
+//             if (item.message_id == message_id) {
+//                 item.offset = offset;
+//                 item.period_in_ticks = period_in_ticks;
+//                 break;
+//             }
+//         } else try periodic.messages.append(.{
+//             .offset = offset,
+//             .period_in_ticks = period_in_ticks,
+//             .message_id = message_id,
+//         });
+//     }
+//
+//     pub fn tick(periodic: *Periodic) void {
+//         for (periodic.messages.items()) |*item| {
+//             if ((periodic.count +% item.offset) % item.period_in_ticks == 0) {
+//                 item.ready = true;
+//             }
+//         }
+//         periodic.count +%= 1;
+//     }
+// };
 
 pub const ChannelMapper = struct {
     arm_switch: ChannelCondition,

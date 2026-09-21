@@ -57,9 +57,9 @@ pub fn main() void {
         log.info("initializing tasks", .{});
 
         task_cpu_usage.init(&scheduler_realtime);
-        // task_imu.init(&scheduler_realtime);
-        // task_control.init(&scheduler_realtime);
-        // task_actuator.init(&scheduler_realtime);
+        task_imu.init(&scheduler_realtime);
+        task_control.init(&scheduler_realtime);
+        task_actuator.init(&scheduler_realtime);
 
         task_rx.init(&scheduler_high);
         task_channel_mapper.init(&scheduler_high);

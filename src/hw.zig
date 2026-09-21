@@ -41,6 +41,7 @@ pub const SchedulerPriority = enum {
 
 pub const TickRate = enum(u32) {
     @"1Hz" = 1,
+    @"5Hz" = 5,
     @"10Hz" = 10,
     @"50Hz" = 50,
     @"100Hz" = 100,

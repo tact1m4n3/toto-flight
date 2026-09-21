@@ -4,7 +4,7 @@
 ///
 const MAVLINK = @This();
 
-pub const MessageId = enum(u32) {
+pub const MessageId = enum(u24) {
     /// Reports the current commanded vehicle position, velocity, and acceleration as specified by the autopilot. This should match the commands sent in SET_POSITION_TARGET_GLOBAL_INT if the vehicle is being controlled this way.
     POSITION_TARGET_GLOBAL_INT = 0x000057,
     /// Cumulative distance traveled for each reported wheel.
@@ -793,7 +793,7 @@ pub const MessageId = enum(u32) {
             .GPS_INPUT => 0x97,
             .ADSB_VEHICLE => 0xA6,
             .CAMERA_CAPTURE_STATUS => 0x0C,
-            .HEARTBEAT => 0xEF,
+            .HEARTBEAT => 0x32,
             .V2_EXTENSION => 0x1C,
             .SCALED_PRESSURE3 => 0x83,
             .PARAM_EXT_SET => 0x18,
@@ -825,37 +825,70 @@ pub const enums = struct {
     /// SERIAL_CONTROL flags (bitmask)
     pub const SERIAL_CONTROL_FLAG = packed struct(u8) {
         /// Set if this is a reply
-        SERIAL_CONTROL_FLAG_REPLY: bool,
+        SERIAL_CONTROL_FLAG_REPLY: bool = false,
         /// Set if the sender wants the receiver to send a response as another SERIAL_CONTROL message
-        SERIAL_CONTROL_FLAG_RESPOND: bool,
+        SERIAL_CONTROL_FLAG_RESPOND: bool = false,
         /// Set if access to the serial port should be removed from whatever driver is currently using it, giving exclusive access to the SERIAL_CONTROL protocol. The port can be handed back by sending a request without this flag set
-        SERIAL_CONTROL_FLAG_EXCLUSIVE: bool,
+        SERIAL_CONTROL_FLAG_EXCLUSIVE: bool = false,
         /// Block on writes to the serial port
-        SERIAL_CONTROL_FLAG_BLOCKING: bool,
+        SERIAL_CONTROL_FLAG_BLOCKING: bool = false,
         /// Send multiple replies until port is drained
-        SERIAL_CONTROL_FLAG_MULTI: bool,
+        SERIAL_CONTROL_FLAG_MULTI: bool = false,
         reserved5: u1 = 0,
         reserved6: u1 = 0,
         reserved7: u1 = 0,
     };
+    /// List of possible units where failures can be injected.
+    pub const FAILURE_UNIT = enum(u8) {
+        FAILURE_UNIT_SENSOR_GYRO = 0,
+        FAILURE_UNIT_SENSOR_ACCEL = 1,
+        FAILURE_UNIT_SENSOR_MAG = 2,
+        FAILURE_UNIT_SENSOR_BARO = 3,
+        FAILURE_UNIT_SENSOR_GPS = 4,
+        FAILURE_UNIT_SENSOR_OPTICAL_FLOW = 5,
+        FAILURE_UNIT_SENSOR_VIO = 6,
+        FAILURE_UNIT_SENSOR_DISTANCE_SENSOR = 7,
+        FAILURE_UNIT_SENSOR_AIRSPEED = 8,
+        FAILURE_UNIT_SYSTEM_BATTERY = 100,
+        /// Interrupts the commanded output to the motor.
+        FAILURE_UNIT_SYSTEM_MOTOR = 101,
+        FAILURE_UNIT_SYSTEM_SERVO = 102,
+        FAILURE_UNIT_SYSTEM_AVOIDANCE = 103,
+        FAILURE_UNIT_SYSTEM_RC_SIGNAL = 104,
+        FAILURE_UNIT_SYSTEM_MAVLINK_SIGNAL = 105,
+        /// Interrupts the telemetry reported by the ESC.
+        FAILURE_UNIT_SYSTEM_ESC = 106,
+        /// Traffic avoidance system like ADS-B or FLARM.
+        FAILURE_UNIT_SYSTEM_TRAFFIC_AVOIDANCE = 107,
+        /// Data link over a cellular (LTE) connection.
+        FAILURE_UNIT_DATALINK_LTE = 150,
+        /// Data link over a Wi-Fi connection.
+        FAILURE_UNIT_DATALINK_WIFI = 151,
+        /// Data link over a telemetry radio, e.g. a SiK radio.
+        FAILURE_UNIT_DATALINK_TELEM_RADIO = 152,
+        /// CAN bus. Instance is the bus number, e.g. 1 for CAN1.
+        FAILURE_UNIT_BUS_CAN = 200,
+        /// I2C bus. Instance is the bus number, e.g. 1 for I2C1.
+        FAILURE_UNIT_BUS_I2C = 201,
+    };
     /// These flags encode the MAV mode, see MAV_MODE enum for useful combinations.
     pub const MAV_MODE_FLAG = packed struct(u8) {
         /// 0b00000001 system-specific custom mode is enabled. When using this flag to enable a custom mode all other flags should be ignored.
-        MAV_MODE_FLAG_CUSTOM_MODE_ENABLED: bool,
+        MAV_MODE_FLAG_CUSTOM_MODE_ENABLED: bool = false,
         /// 0b00000010 system has a test mode enabled. This flag is intended for temporary system tests and should not be used for stable implementations.
-        MAV_MODE_FLAG_TEST_ENABLED: bool,
+        MAV_MODE_FLAG_TEST_ENABLED: bool = false,
         /// 0b00000100 autonomous mode enabled, system finds its own goal positions. Guided flag can be set or not, depends on the actual implementation.
-        MAV_MODE_FLAG_AUTO_ENABLED: bool,
+        MAV_MODE_FLAG_AUTO_ENABLED: bool = false,
         /// 0b00001000 guided mode enabled, system flies waypoints / mission items.
-        MAV_MODE_FLAG_GUIDED_ENABLED: bool,
+        MAV_MODE_FLAG_GUIDED_ENABLED: bool = false,
         /// 0b00010000 system stabilizes electronically its attitude (and optionally position). It needs however further control inputs to move around.
-        MAV_MODE_FLAG_STABILIZE_ENABLED: bool,
+        MAV_MODE_FLAG_STABILIZE_ENABLED: bool = false,
         /// 0b00100000 hardware in the loop simulation. All motors / actuators are blocked, but internal software is full operational.
-        MAV_MODE_FLAG_HIL_ENABLED: bool,
+        MAV_MODE_FLAG_HIL_ENABLED: bool = false,
         /// 0b01000000 remote control input is enabled.
-        MAV_MODE_FLAG_MANUAL_INPUT_ENABLED: bool,
+        MAV_MODE_FLAG_MANUAL_INPUT_ENABLED: bool = false,
         /// 0b10000000 MAV safety set to armed. Motors are enabled / running / can start. Ready to fly. Additional note: this flag is to be ignored when sent in the command MAV_CMD_DO_SET_MODE and MAV_CMD_COMPONENT_ARM_DISARM shall be used instead. The flag can still be used to report the armed state.
-        MAV_MODE_FLAG_SAFETY_ARMED: bool,
+        MAV_MODE_FLAG_SAFETY_ARMED: bool = false,
     };
     pub const MAV_ODID_AUTH_TYPE = enum(u8) {
         /// No authentication type is specified.
@@ -874,7 +907,7 @@ pub const enums = struct {
     /// Flags for CURRENT_EVENT_SEQUENCE.
     pub const MAV_EVENT_CURRENT_SEQUENCE_FLAGS = packed struct(u8) {
         /// A sequence reset has happened (e.g. vehicle reboot).
-        MAV_EVENT_CURRENT_SEQUENCE_FLAGS_RESET: bool,
+        MAV_EVENT_CURRENT_SEQUENCE_FLAGS_RESET: bool = false,
         reserved1: u1 = 0,
         reserved2: u1 = 0,
         reserved3: u1 = 0,
@@ -912,17 +945,17 @@ pub const enums = struct {
     /// Power supply status flags (bitmask)
     pub const MAV_POWER_STATUS = packed struct(u16) {
         /// main brick power supply valid
-        MAV_POWER_STATUS_BRICK_VALID: bool,
+        MAV_POWER_STATUS_BRICK_VALID: bool = false,
         /// main servo power supply valid for FMU
-        MAV_POWER_STATUS_SERVO_VALID: bool,
+        MAV_POWER_STATUS_SERVO_VALID: bool = false,
         /// USB power is connected
-        MAV_POWER_STATUS_USB_CONNECTED: bool,
+        MAV_POWER_STATUS_USB_CONNECTED: bool = false,
         /// peripheral supply is in over-current state
-        MAV_POWER_STATUS_PERIPH_OVERCURRENT: bool,
+        MAV_POWER_STATUS_PERIPH_OVERCURRENT: bool = false,
         /// hi-power peripheral supply is in over-current state
-        MAV_POWER_STATUS_PERIPH_HIPOWER_OVERCURRENT: bool,
+        MAV_POWER_STATUS_PERIPH_HIPOWER_OVERCURRENT: bool = false,
         /// Power status has changed since boot
-        MAV_POWER_STATUS_CHANGED: bool,
+        MAV_POWER_STATUS_CHANGED: bool = false,
         reserved6: u1 = 0,
         reserved7: u1 = 0,
         reserved8: u1 = 0,
@@ -933,6 +966,34 @@ pub const enums = struct {
         reserved13: u1 = 0,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
+    };
+    /// These values encode the bit positions of the decode position. These values can be used to read the value of a flag bit by combining the base_mode variable with AND with the flag position value. The result will be either 0 or 1, depending on if the flag is set or not.
+    pub const MAV_MODE_FLAG_DECODE_POSITION = packed struct(u8) {
+        /// Eighth bit: 00000001
+        MAV_MODE_FLAG_DECODE_POSITION_CUSTOM_MODE: bool = false,
+        /// Seventh bit: 00000010
+        MAV_MODE_FLAG_DECODE_POSITION_TEST: bool = false,
+        /// Sixth bit:   00000100
+        MAV_MODE_FLAG_DECODE_POSITION_AUTO: bool = false,
+        /// Fifth bit:  00001000
+        MAV_MODE_FLAG_DECODE_POSITION_GUIDED: bool = false,
+        /// Fourth bit: 00010000
+        MAV_MODE_FLAG_DECODE_POSITION_STABILIZE: bool = false,
+        /// Third bit:  00100000
+        MAV_MODE_FLAG_DECODE_POSITION_HIL: bool = false,
+        /// Second bit: 01000000
+        MAV_MODE_FLAG_DECODE_POSITION_MANUAL: bool = false,
+        /// First bit:  10000000
+        MAV_MODE_FLAG_DECODE_POSITION_SAFETY: bool = false,
+    };
+    /// Heading setpoint types used in MAV_CMD_GUIDED_CHANGE_HEADING
+    pub const HEADING_TYPE = enum(u8) {
+        /// Course over ground.
+        HEADING_TYPE_COURSE_OVER_GROUND = 0,
+        /// Raw vehicle heading.
+        HEADING_TYPE_HEADING = 1,
+        /// Default heading.
+        HEADING_TYPE_DEFAULT = 2,
     };
     /// Enumeration of battery functions
     pub const MAV_BATTERY_FUNCTION = enum(u8) {
@@ -968,6 +1029,57 @@ pub const enums = struct {
         /// PPP, 3D position.
         GPS_FIX_TYPE_PPP = 8,
     };
+    /// Gimbal device (low level) capability flags (bitmap).
+    pub const GIMBAL_DEVICE_CAP_FLAGS = packed struct(u32) {
+        /// Gimbal device supports a retracted position.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_RETRACT: bool = false,
+        /// Gimbal device supports a horizontal, forward looking position, stabilized.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_NEUTRAL: bool = false,
+        /// Gimbal device supports rotating around roll axis.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_AXIS: bool = false,
+        /// Gimbal device supports to follow a roll angle relative to the vehicle.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_FOLLOW: bool = false,
+        /// Gimbal device supports locking to a roll angle (generally that's the default with roll stabilized).
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_LOCK: bool = false,
+        /// Gimbal device supports rotating around pitch axis.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_AXIS: bool = false,
+        /// Gimbal device supports to follow a pitch angle relative to the vehicle.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_FOLLOW: bool = false,
+        /// Gimbal device supports locking to a pitch angle (generally that's the default with pitch stabilized).
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_LOCK: bool = false,
+        /// Gimbal device supports rotating around yaw axis.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_AXIS: bool = false,
+        /// Gimbal device supports to follow a yaw angle relative to the vehicle (generally that's the default).
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_FOLLOW: bool = false,
+        /// Gimbal device supports locking to an absolute heading, i.e., yaw angle relative to North (earth frame, often this is an option available).
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_LOCK: bool = false,
+        /// Gimbal device supports yawing/panning infinitely (e.g. using slip disk).
+        GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_INFINITE_YAW: bool = false,
+        /// Gimbal device supports yaw angles and angular velocities relative to North (earth frame). This usually requires support by an autopilot via AUTOPILOT_STATE_FOR_GIMBAL_DEVICE. Support can go on and off during runtime, which is reported by the flag GIMBAL_DEVICE_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME.
+        GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME: bool = false,
+        /// Gimbal device supports radio control inputs as an alternative input for controlling the gimbal orientation.
+        GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS: bool = false,
+        reserved14: u1 = 0,
+        reserved15: u1 = 0,
+        /// Gimbal device supports to point to a local position.
+        GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL: bool = false,
+        /// Gimbal device supports to point to a global latitude, longitude, altitude position.
+        GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL: bool = false,
+        reserved18: u1 = 0,
+        reserved19: u1 = 0,
+        reserved20: u1 = 0,
+        reserved21: u1 = 0,
+        reserved22: u1 = 0,
+        reserved23: u1 = 0,
+        reserved24: u1 = 0,
+        reserved25: u1 = 0,
+        reserved26: u1 = 0,
+        reserved27: u1 = 0,
+        reserved28: u1 = 0,
+        reserved29: u1 = 0,
+        reserved30: u1 = 0,
+        reserved31: u1 = 0,
+    };
     /// Type of mission items being requested/sent in mission protocol.
     pub const MAV_MISSION_TYPE = enum(u8) {
         /// Items are mission commands for main mission.
@@ -994,9 +1106,9 @@ pub const enums = struct {
     /// Status flags for GLOBAL_POSITION
     pub const GLOBAL_POSITION_FLAGS = packed struct(u8) {
         /// Unhealthy sensor/estimator.
-        GLOBAL_POSITION_UNHEALTHY: bool,
+        GLOBAL_POSITION_UNHEALTHY: bool = false,
         /// True if the data originates from or is consumed by the primary estimator.
-        GLOBAL_POSITION_PRIMARY: bool,
+        GLOBAL_POSITION_PRIMARY: bool = false,
         reserved2: u1 = 0,
         reserved3: u1 = 0,
         reserved4: u1 = 0,
@@ -1007,29 +1119,29 @@ pub const enums = struct {
     /// Flags in ESTIMATOR_STATUS message
     pub const ESTIMATOR_STATUS_FLAGS = packed struct(u16) {
         /// True if the attitude estimate is good
-        ESTIMATOR_ATTITUDE: bool,
+        ESTIMATOR_ATTITUDE: bool = false,
         /// True if the horizontal velocity estimate is good
-        ESTIMATOR_VELOCITY_HORIZ: bool,
+        ESTIMATOR_VELOCITY_HORIZ: bool = false,
         /// True if the  vertical velocity estimate is good
-        ESTIMATOR_VELOCITY_VERT: bool,
+        ESTIMATOR_VELOCITY_VERT: bool = false,
         /// True if the horizontal position (relative) estimate is good
-        ESTIMATOR_POS_HORIZ_REL: bool,
+        ESTIMATOR_POS_HORIZ_REL: bool = false,
         /// True if the horizontal position (absolute) estimate is good
-        ESTIMATOR_POS_HORIZ_ABS: bool,
+        ESTIMATOR_POS_HORIZ_ABS: bool = false,
         /// True if the vertical position (absolute) estimate is good
-        ESTIMATOR_POS_VERT_ABS: bool,
+        ESTIMATOR_POS_VERT_ABS: bool = false,
         /// True if the vertical position (above ground) estimate is good
-        ESTIMATOR_POS_VERT_AGL: bool,
+        ESTIMATOR_POS_VERT_AGL: bool = false,
         /// True if the EKF is in a constant position mode and is not using external measurements (eg GPS or optical flow)
-        ESTIMATOR_CONST_POS_MODE: bool,
+        ESTIMATOR_CONST_POS_MODE: bool = false,
         /// True if the EKF has sufficient data to enter a mode that will provide a (relative) position estimate
-        ESTIMATOR_PRED_POS_HORIZ_REL: bool,
+        ESTIMATOR_PRED_POS_HORIZ_REL: bool = false,
         /// True if the EKF has sufficient data to enter a mode that will provide a (absolute) position estimate
-        ESTIMATOR_PRED_POS_HORIZ_ABS: bool,
+        ESTIMATOR_PRED_POS_HORIZ_ABS: bool = false,
         /// True if the EKF has detected a GPS glitch
-        ESTIMATOR_GPS_GLITCH: bool,
+        ESTIMATOR_GPS_GLITCH: bool = false,
         /// True if the EKF has detected bad accelerometer data
-        ESTIMATOR_ACCEL_ERROR: bool,
+        ESTIMATOR_ACCEL_ERROR: bool = false,
         reserved12: u1 = 0,
         reserved13: u1 = 0,
         reserved14: u1 = 0,
@@ -1170,6 +1282,15 @@ pub const enums = struct {
         /// Other type of aircraft not listed earlier.
         MAV_ODID_UA_TYPE_OTHER = 15,
     };
+    /// Precision land modes (used in MAV_CMD_NAV_LAND).
+    pub const PRECISION_LAND_MODE = enum(u8) {
+        /// Normal (non-precision) landing.
+        PRECISION_LAND_MODE_DISABLED = 0,
+        /// Use precision landing if beacon detected when land command accepted, otherwise land normally.
+        PRECISION_LAND_MODE_OPPORTUNISTIC = 1,
+        /// Use precision landing, searching for beacon if not found when land command accepted (land normally if beacon cannot be found).
+        PRECISION_LAND_MODE_REQUIRED = 2,
+    };
     pub const MAG_CAL_STATUS = enum(u8) {
         MAG_CAL_NOT_STARTED = 0,
         MAG_CAL_WAITING_TO_START = 1,
@@ -1187,6 +1308,32 @@ pub const enums = struct {
         MAG_CAL_FAILED_DIAG_SCALING = 9,
         /// Compass calibration failed: fitness (RMS residual) exceeds tolerance.
         MAG_CAL_FAILED_RESIDUALS_HIGH = 10,
+    };
+    /// Action for the magnetometer (param2) of MAV_CMD_PREFLIGHT_CALIBRATION.
+    pub const PREFLIGHT_CALIBRATION_MAGNETOMETER = enum(u8) {
+        /// No action.
+        PREFLIGHT_CALIBRATION_MAGNETOMETER_NONE = 0,
+        /// Start magnetometer calibration.
+        PREFLIGHT_CALIBRATION_MAGNETOMETER_START = 1,
+        /// Force-accept the existing compass calibration as valid without re-running it. Useful after a parameter reload that cleared calibration validity flags.
+        PREFLIGHT_CALIBRATION_MAGNETOMETER_FORCE_SAVE = 76,
+    };
+    /// Fence types to enable or disable when using MAV_CMD_DO_FENCE_ENABLE.
+    /// Note that at least one of these flags must be set in MAV_CMD_DO_FENCE_ENABLE.param2.
+    /// If none are set, the flight stack will ignore the field and enable/disable its default set of fences (usually all of them).
+    pub const FENCE_TYPE = packed struct(u8) {
+        /// Maximum altitude fence
+        FENCE_TYPE_ALT_MAX: bool = false,
+        /// Circle fence
+        FENCE_TYPE_CIRCLE: bool = false,
+        /// Polygon fence
+        FENCE_TYPE_POLYGON: bool = false,
+        /// Minimum altitude fence
+        FENCE_TYPE_ALT_MIN: bool = false,
+        reserved4: u1 = 0,
+        reserved5: u1 = 0,
+        reserved6: u1 = 0,
+        reserved7: u1 = 0,
     };
     /// Possible responses from a CELLULAR_CONFIG message.
     pub const CELLULAR_CONFIG_RESPONSE = enum(u8) {
@@ -1212,6 +1359,33 @@ pub const enums = struct {
         /// Landing target represented by a pre-defined visual shape/feature (ex: X-marker, H-marker, square)
         LANDING_TARGET_TYPE_VISION_OTHER = 3,
     };
+    /// Reasons for denying an authorization request made with MAV_CMD_ARM_AUTHORIZATION_REQUEST. If the COMMAND_ACK result is MAV_RESULT_DENIED, this is used to set the reason in the result_param2 field.
+    pub const MAV_ARM_AUTH_DENIED_REASON = enum(u8) {
+        /// Not a specific reason
+        MAV_ARM_AUTH_DENIED_REASON_GENERIC = 0,
+        /// Authorizer will send the error as string to GCS
+        MAV_ARM_AUTH_DENIED_REASON_NONE = 1,
+        /// At least one waypoint have a invalid value
+        MAV_ARM_AUTH_DENIED_REASON_INVALID_WAYPOINT = 2,
+        /// Timeout in the authorizer process(in case it depends on network)
+        MAV_ARM_AUTH_DENIED_REASON_TIMEOUT = 3,
+        /// Airspace of the mission in use by another vehicle, second result parameter can have the waypoint id that caused it to be denied.
+        MAV_ARM_AUTH_DENIED_REASON_AIRSPACE_IN_USE = 4,
+        /// Weather is not good to fly
+        MAV_ARM_AUTH_DENIED_REASON_BAD_WEATHER = 5,
+    };
+    /// Engine control options
+    pub const ENGINE_CONTROL_OPTIONS = packed struct(u8) {
+        /// Allow starting the engine while disarmed (without changing the vehicle's armed state). This effectively arms just the ICE, without arming the vehicle to start other motors or propellers.
+        ENGINE_CONTROL_OPTIONS_ALLOW_START_WHILE_DISARMED: bool = false,
+        reserved1: u1 = 0,
+        reserved2: u1 = 0,
+        reserved3: u1 = 0,
+        reserved4: u1 = 0,
+        reserved5: u1 = 0,
+        reserved6: u1 = 0,
+        reserved7: u1 = 0,
+    };
     pub const MAV_ODID_CLASS_EU = enum(u8) {
         /// The class for the UA, according to the EU specification, is undeclared.
         MAV_ODID_CLASS_EU_UNDECLARED = 0,
@@ -1233,30 +1407,30 @@ pub const enums = struct {
     /// These flags are used in the AIS_VESSEL.fields bitmask to indicate validity of data in the other message fields. When set, the data is valid.
     pub const AIS_FLAGS = packed struct(u16) {
         /// 1 = High (Position accuracy less than or equal to 10m), 0 = Low (position accuracy greater than 10m).
-        AIS_FLAGS_POSITION_ACCURACY: bool,
+        AIS_FLAGS_POSITION_ACCURACY: bool = false,
         /// The COG field contains valid data
-        AIS_FLAGS_VALID_COG: bool,
+        AIS_FLAGS_VALID_COG: bool = false,
         /// The velocity field contains valid data
-        AIS_FLAGS_VALID_VELOCITY: bool,
+        AIS_FLAGS_VALID_VELOCITY: bool = false,
         /// 1 = Velocity over 52.5765m/s (102.2 knots)
-        AIS_FLAGS_HIGH_VELOCITY: bool,
+        AIS_FLAGS_HIGH_VELOCITY: bool = false,
         /// The turn_rate field contains valid data
-        AIS_FLAGS_VALID_TURN_RATE: bool,
+        AIS_FLAGS_VALID_TURN_RATE: bool = false,
         /// Only the sign of the returned turn_rate value is valid. The actual turn rate is either greater than 5deg/30s or less than -5deg/30s.
-        AIS_FLAGS_TURN_RATE_SIGN_ONLY: bool,
-        AIS_FLAGS_VALID_DIMENSIONS: bool,
+        AIS_FLAGS_TURN_RATE_SIGN_ONLY: bool = false,
+        AIS_FLAGS_VALID_DIMENSIONS: bool = false,
         /// Distance to bow is greater than or equal to 511m
-        AIS_FLAGS_LARGE_BOW_DIMENSION: bool,
+        AIS_FLAGS_LARGE_BOW_DIMENSION: bool = false,
         /// Distance to stern is greater than or equal to 511m
-        AIS_FLAGS_LARGE_STERN_DIMENSION: bool,
+        AIS_FLAGS_LARGE_STERN_DIMENSION: bool = false,
         /// Distance to port side is greater than or equal to 63m
-        AIS_FLAGS_LARGE_PORT_DIMENSION: bool,
+        AIS_FLAGS_LARGE_PORT_DIMENSION: bool = false,
         /// Distance to starboard side is greater than or equal to 63m
-        AIS_FLAGS_LARGE_STARBOARD_DIMENSION: bool,
+        AIS_FLAGS_LARGE_STARBOARD_DIMENSION: bool = false,
         /// The callsign field contains valid data
-        AIS_FLAGS_VALID_CALLSIGN: bool,
+        AIS_FLAGS_VALID_CALLSIGN: bool = false,
         /// The name field contains valid data
-        AIS_FLAGS_VALID_NAME: bool,
+        AIS_FLAGS_VALID_NAME: bool = false,
         reserved13: u1 = 0,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
@@ -1264,33 +1438,33 @@ pub const enums = struct {
     /// Winch status flags used in WINCH_STATUS
     pub const MAV_WINCH_STATUS_FLAG = packed struct(u32) {
         /// Winch is healthy
-        MAV_WINCH_STATUS_HEALTHY: bool,
+        MAV_WINCH_STATUS_HEALTHY: bool = false,
         /// Winch line is fully retracted
-        MAV_WINCH_STATUS_FULLY_RETRACTED: bool,
+        MAV_WINCH_STATUS_FULLY_RETRACTED: bool = false,
         /// Winch motor is moving
-        MAV_WINCH_STATUS_MOVING: bool,
+        MAV_WINCH_STATUS_MOVING: bool = false,
         /// Winch clutch is disengaged. The motor is moving freely and not driving the winch.
-        MAV_WINCH_STATUS_CLUTCH_DISENGAGED: bool,
+        MAV_WINCH_STATUS_CLUTCH_DISENGAGED: bool = false,
         /// Winch is locked by locking mechanism.
-        MAV_WINCH_STATUS_LOCKED: bool,
+        MAV_WINCH_STATUS_LOCKED: bool = false,
         /// Winch is gravity dropping payload.
-        MAV_WINCH_STATUS_DROPPING: bool,
+        MAV_WINCH_STATUS_DROPPING: bool = false,
         /// Winch is arresting payload descent.
-        MAV_WINCH_STATUS_ARRESTING: bool,
+        MAV_WINCH_STATUS_ARRESTING: bool = false,
         /// Winch is using torque measurements to sense the ground.
-        MAV_WINCH_STATUS_GROUND_SENSE: bool,
+        MAV_WINCH_STATUS_GROUND_SENSE: bool = false,
         /// Winch is returning to the fully retracted position.
-        MAV_WINCH_STATUS_RETRACTING: bool,
+        MAV_WINCH_STATUS_RETRACTING: bool = false,
         /// Winch is redelivering the payload. This is a failover state if the line tension goes above a threshold during RETRACTING.
-        MAV_WINCH_STATUS_REDELIVER: bool,
+        MAV_WINCH_STATUS_REDELIVER: bool = false,
         /// Winch is abandoning the line and possibly payload. Winch unspools the entire calculated line length. This is a failover state from REDELIVER if the number of attempts exceeds a threshold.
-        MAV_WINCH_STATUS_ABANDON_LINE: bool,
+        MAV_WINCH_STATUS_ABANDON_LINE: bool = false,
         /// Winch is engaging the locking mechanism.
-        MAV_WINCH_STATUS_LOCKING: bool,
+        MAV_WINCH_STATUS_LOCKING: bool = false,
         /// Winch is spooling on line.
-        MAV_WINCH_STATUS_LOAD_LINE: bool,
+        MAV_WINCH_STATUS_LOAD_LINE: bool = false,
         /// Winch is loading a payload.
-        MAV_WINCH_STATUS_LOAD_PAYLOAD: bool,
+        MAV_WINCH_STATUS_LOAD_PAYLOAD: bool = false,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
         reserved16: u1 = 0,
@@ -1310,11 +1484,37 @@ pub const enums = struct {
         reserved30: u1 = 0,
         reserved31: u1 = 0,
     };
+    /// Actions that may be specified in MAV_CMD_OVERRIDE_GOTO to override mission execution.
+    pub const MAV_GOTO = enum(u8) {
+        /// Hold at the current position.
+        MAV_GOTO_DO_HOLD = 0,
+        /// Continue with the next item in mission execution.
+        MAV_GOTO_DO_CONTINUE = 1,
+        /// Hold at the current position of the system
+        MAV_GOTO_HOLD_AT_CURRENT_POSITION = 2,
+        /// Hold at the position specified in the parameters of the DO_HOLD action
+        MAV_GOTO_HOLD_AT_SPECIFIED_POSITION = 3,
+    };
     pub const MAV_ODID_CLASSIFICATION_TYPE = enum(u8) {
         /// The classification type for the UA is undeclared.
         MAV_ODID_CLASSIFICATION_TYPE_UNDECLARED = 0,
         /// The classification type for the UA follows EU (European Union) specifications.
         MAV_ODID_CLASSIFICATION_TYPE_EU = 1,
+    };
+    /// Supported component metadata types. These are used in the "general" metadata file returned by COMPONENT_METADATA to provide information about supported metadata types. The types are not used directly in MAVLink messages.
+    pub const COMP_METADATA_TYPE = enum(u8) {
+        /// General information about the component. General metadata includes information about other metadata types supported by the component. Files of this type must be supported, and must be downloadable from vehicle using a MAVLink FTP URI.
+        COMP_METADATA_TYPE_GENERAL = 0,
+        /// Parameter meta data.
+        COMP_METADATA_TYPE_PARAMETER = 1,
+        /// Meta data that specifies which commands and command parameters the vehicle supports. (WIP)
+        COMP_METADATA_TYPE_COMMANDS = 2,
+        /// Meta data that specifies external non-MAVLink peripherals.
+        COMP_METADATA_TYPE_PERIPHERALS = 3,
+        /// Meta data for the events interface.
+        COMP_METADATA_TYPE_EVENTS = 4,
+        /// Meta data for actuator configuration (motors, servos and vehicle geometry) and testing.
+        COMP_METADATA_TYPE_ACTUATORS = 5,
     };
     /// Predefined OR-combined MAV_MODE_FLAG values. These can simplify using the flags when setting modes. Note that manual input is enabled in all modes as a safety override.
     /// DEPRECATED(2025-02)
@@ -1368,6 +1568,23 @@ pub const enums = struct {
         /// Broken or unknown type, e.g. analog units
         MAV_DISTANCE_SENSOR_UNKNOWN = 4,
     };
+    /// Focus types for MAV_CMD_SET_CAMERA_FOCUS
+    pub const SET_FOCUS_TYPE = enum(u8) {
+        /// Focus one step increment (-1 for focusing in, 1 for focusing out towards infinity).
+        FOCUS_TYPE_STEP = 0,
+        /// Continuous normalized focus in/out rate until stopped. Range -1..1, negative: in, positive: out towards infinity, 0 to stop focusing. Other values should be clipped to the range.
+        FOCUS_TYPE_CONTINUOUS = 1,
+        /// Focus value as proportion of full camera focus range (a value between 0.0 and 100.0)
+        FOCUS_TYPE_RANGE = 2,
+        /// Focus value in metres. Note that there is no message to get the valid focus range of the camera, so this can type can only be used for cameras where the range is known (implying that this cannot reliably be used in a GCS for an arbitrary camera).
+        FOCUS_TYPE_METERS = 3,
+        /// Focus automatically.
+        FOCUS_TYPE_AUTO = 4,
+        /// Single auto focus. Mainly used for still pictures. Usually abbreviated as AF-S.
+        FOCUS_TYPE_AUTO_SINGLE = 5,
+        /// Continuous auto focus. Mainly used for dynamic scenes. Abbreviated as AF-C.
+        FOCUS_TYPE_AUTO_CONTINUOUS = 6,
+    };
     /// Reason for an event error response.
     pub const MAV_EVENT_ERROR_REASON = enum(u8) {
         /// The requested event is not available (anymore).
@@ -1381,6 +1598,17 @@ pub const enums = struct {
         CAMERA_TRACKING_MODE_POINT = 1,
         /// Target is a rectangle
         CAMERA_TRACKING_MODE_RECTANGLE = 2,
+    };
+    /// Camera sources for MAV_CMD_SET_CAMERA_SOURCE
+    pub const CAMERA_SOURCE = enum(u8) {
+        /// Default camera source.
+        CAMERA_SOURCE_DEFAULT = 0,
+        /// RGB camera source.
+        CAMERA_SOURCE_RGB = 1,
+        /// IR camera source.
+        CAMERA_SOURCE_IR = 2,
+        /// NDVI camera source.
+        CAMERA_SOURCE_NDVI = 3,
     };
     /// Result of mission operation (in a MISSION_ACK message).
     pub const MAV_MISSION_RESULT = enum(u8) {
@@ -1484,31 +1712,31 @@ pub const enums = struct {
     /// Flags in the HIGHRES_IMU message indicate which fields have updated since the last message
     pub const HIGHRES_IMU_UPDATED_FLAGS = packed struct(u16) {
         /// The value in the xacc field has been updated
-        HIGHRES_IMU_UPDATED_XACC: bool,
+        HIGHRES_IMU_UPDATED_XACC: bool = false,
         /// The value in the yacc field has been updated
-        HIGHRES_IMU_UPDATED_YACC: bool,
+        HIGHRES_IMU_UPDATED_YACC: bool = false,
         /// The value in the zacc field has been updated since
-        HIGHRES_IMU_UPDATED_ZACC: bool,
+        HIGHRES_IMU_UPDATED_ZACC: bool = false,
         /// The value in the xgyro field has been updated
-        HIGHRES_IMU_UPDATED_XGYRO: bool,
+        HIGHRES_IMU_UPDATED_XGYRO: bool = false,
         /// The value in the ygyro field has been updated
-        HIGHRES_IMU_UPDATED_YGYRO: bool,
+        HIGHRES_IMU_UPDATED_YGYRO: bool = false,
         /// The value in the zgyro field has been updated
-        HIGHRES_IMU_UPDATED_ZGYRO: bool,
+        HIGHRES_IMU_UPDATED_ZGYRO: bool = false,
         /// The value in the xmag field has been updated
-        HIGHRES_IMU_UPDATED_XMAG: bool,
+        HIGHRES_IMU_UPDATED_XMAG: bool = false,
         /// The value in the ymag field has been updated
-        HIGHRES_IMU_UPDATED_YMAG: bool,
+        HIGHRES_IMU_UPDATED_YMAG: bool = false,
         /// The value in the zmag field has been updated
-        HIGHRES_IMU_UPDATED_ZMAG: bool,
+        HIGHRES_IMU_UPDATED_ZMAG: bool = false,
         /// The value in the abs_pressure field has been updated
-        HIGHRES_IMU_UPDATED_ABS_PRESSURE: bool,
+        HIGHRES_IMU_UPDATED_ABS_PRESSURE: bool = false,
         /// The value in the diff_pressure field has been updated
-        HIGHRES_IMU_UPDATED_DIFF_PRESSURE: bool,
+        HIGHRES_IMU_UPDATED_DIFF_PRESSURE: bool = false,
         /// The value in the pressure_alt field has been updated
-        HIGHRES_IMU_UPDATED_PRESSURE_ALT: bool,
+        HIGHRES_IMU_UPDATED_PRESSURE_ALT: bool = false,
         /// The value in the temperature field has been updated
-        HIGHRES_IMU_UPDATED_TEMPERATURE: bool,
+        HIGHRES_IMU_UPDATED_TEMPERATURE: bool = false,
         reserved13: u1 = 0,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
@@ -1516,23 +1744,23 @@ pub const enums = struct {
     /// Smart battery supply status/fault flags (bitmask) for health indication. The battery must also report either MAV_BATTERY_CHARGE_STATE_FAILED or MAV_BATTERY_CHARGE_STATE_UNHEALTHY if any of these are set.
     pub const MAV_BATTERY_FAULT = packed struct(u32) {
         /// Battery has deep discharged.
-        MAV_BATTERY_FAULT_DEEP_DISCHARGE: bool,
+        MAV_BATTERY_FAULT_DEEP_DISCHARGE: bool = false,
         /// Voltage spikes.
-        MAV_BATTERY_FAULT_SPIKES: bool,
+        MAV_BATTERY_FAULT_SPIKES: bool = false,
         /// One or more cells have failed. Battery should also report MAV_BATTERY_CHARGE_STATE_FAILED (and should not be used).
-        MAV_BATTERY_FAULT_CELL_FAIL: bool,
+        MAV_BATTERY_FAULT_CELL_FAIL: bool = false,
         /// Over-current fault.
-        MAV_BATTERY_FAULT_OVER_CURRENT: bool,
+        MAV_BATTERY_FAULT_OVER_CURRENT: bool = false,
         /// Over-temperature fault.
-        MAV_BATTERY_FAULT_OVER_TEMPERATURE: bool,
+        MAV_BATTERY_FAULT_OVER_TEMPERATURE: bool = false,
         /// Under-temperature fault.
-        MAV_BATTERY_FAULT_UNDER_TEMPERATURE: bool,
+        MAV_BATTERY_FAULT_UNDER_TEMPERATURE: bool = false,
         /// Vehicle voltage is not compatible with this battery (batteries on same power rail should have similar voltage).
-        MAV_BATTERY_FAULT_INCOMPATIBLE_VOLTAGE: bool,
+        MAV_BATTERY_FAULT_INCOMPATIBLE_VOLTAGE: bool = false,
         /// Battery firmware is not compatible with current autopilot firmware.
-        MAV_BATTERY_FAULT_INCOMPATIBLE_FIRMWARE: bool,
+        MAV_BATTERY_FAULT_INCOMPATIBLE_FIRMWARE: bool = false,
         /// Battery is not compatible due to cell configuration (e.g. 5s1p when vehicle requires 6s).
-        BATTERY_FAULT_INCOMPATIBLE_CELLS_CONFIGURATION: bool,
+        BATTERY_FAULT_INCOMPATIBLE_CELLS_CONFIGURATION: bool = false,
         reserved9: u1 = 0,
         reserved10: u1 = 0,
         reserved11: u1 = 0,
@@ -1567,24 +1795,33 @@ pub const enums = struct {
         /// Generic arming failure, see error string for details.
         MAV_ODID_ARM_STATUS_PRE_ARM_FAIL_GENERIC = 1,
     };
+    /// RC sub-type of types defined in RC_TYPE. Used in MAV_CMD_START_RX_PAIR. Ignored if value does not correspond to the set RC_TYPE.
+    pub const RC_SUB_TYPE = enum(u8) {
+        /// Spektrum DSM2
+        RC_SUB_TYPE_SPEKTRUM_DSM2 = 0,
+        /// Spektrum DSMX
+        RC_SUB_TYPE_SPEKTRUM_DSMX = 1,
+        /// Spektrum DSMX8
+        RC_SUB_TYPE_SPEKTRUM_DSMX8 = 2,
+    };
     /// Flags for the global position report.
     pub const UTM_DATA_AVAIL_FLAGS = packed struct(u8) {
         /// The field time contains valid data.
-        UTM_DATA_AVAIL_FLAGS_TIME_VALID: bool,
+        UTM_DATA_AVAIL_FLAGS_TIME_VALID: bool = false,
         /// The field uas_id contains valid data.
-        UTM_DATA_AVAIL_FLAGS_UAS_ID_AVAILABLE: bool,
+        UTM_DATA_AVAIL_FLAGS_UAS_ID_AVAILABLE: bool = false,
         /// The fields lat, lon and h_acc contain valid data.
-        UTM_DATA_AVAIL_FLAGS_POSITION_AVAILABLE: bool,
+        UTM_DATA_AVAIL_FLAGS_POSITION_AVAILABLE: bool = false,
         /// The fields alt and v_acc contain valid data.
-        UTM_DATA_AVAIL_FLAGS_ALTITUDE_AVAILABLE: bool,
+        UTM_DATA_AVAIL_FLAGS_ALTITUDE_AVAILABLE: bool = false,
         /// The field relative_alt contains valid data.
-        UTM_DATA_AVAIL_FLAGS_RELATIVE_ALTITUDE_AVAILABLE: bool,
+        UTM_DATA_AVAIL_FLAGS_RELATIVE_ALTITUDE_AVAILABLE: bool = false,
         /// The fields vx and vy contain valid data.
-        UTM_DATA_AVAIL_FLAGS_HORIZONTAL_VELO_AVAILABLE: bool,
+        UTM_DATA_AVAIL_FLAGS_HORIZONTAL_VELO_AVAILABLE: bool = false,
         /// The field vz contains valid data.
-        UTM_DATA_AVAIL_FLAGS_VERTICAL_VELO_AVAILABLE: bool,
+        UTM_DATA_AVAIL_FLAGS_VERTICAL_VELO_AVAILABLE: bool = false,
         /// The fields next_lat, next_lon and next_alt contain valid data.
-        UTM_DATA_AVAIL_FLAGS_NEXT_WAYPOINT_AVAILABLE: bool,
+        UTM_DATA_AVAIL_FLAGS_NEXT_WAYPOINT_AVAILABLE: bool = false,
     };
     /// Generalized UAVCAN node mode
     pub const UAVCAN_NODE_MODE = enum(u8) {
@@ -1598,6 +1835,17 @@ pub const enums = struct {
         UAVCAN_NODE_MODE_SOFTWARE_UPDATE = 3,
         /// The node is no longer available online.
         UAVCAN_NODE_MODE_OFFLINE = 7,
+    };
+    pub const NAV_TAKEOFF_FLAGS = packed struct(u8) {
+        /// Accept the command even if the autopilot does not have control over its horizontal position (note that it might not have altitude control either).
+        NAV_TAKEOFF_FLAGS_HORIZONTAL_POSITION_NOT_REQUIRED: bool = false,
+        reserved1: u1 = 0,
+        reserved2: u1 = 0,
+        reserved3: u1 = 0,
+        reserved4: u1 = 0,
+        reserved5: u1 = 0,
+        reserved6: u1 = 0,
+        reserved7: u1 = 0,
     };
     pub const MAV_TUNNEL_PAYLOAD_TYPE = enum(u16) {
         /// Encoding of payload unknown.
@@ -1628,6 +1876,35 @@ pub const enums = struct {
         MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_ESC_UART_PASSTHRU = 211,
         /// Registered for ModalAI vendor use.
         MAV_TUNNEL_PAYLOAD_TYPE_MODALAI_IO_UART_PASSTHRU = 212,
+    };
+    /// Reboot/shutdown action for selected component in MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN.
+    pub const REBOOT_SHUTDOWN_ACTION = enum(u8) {
+        /// Do nothing.
+        REBOOT_SHUTDOWN_ACTION_NONE = 0,
+        /// Reboot component.
+        REBOOT_SHUTDOWN_ACTION_REBOOT = 1,
+        /// Shutdown component.
+        REBOOT_SHUTDOWN_ACTION_SHUTDOWN = 2,
+        /// Reboot component and keep it in the bootloader until upgraded.
+        REBOOT_SHUTDOWN_ACTION_REBOOT_TO_BOOTLOADER = 3,
+        /// Power on component. Do nothing if component is already powered (ACK command with MAV_RESULT_ACCEPTED).
+        REBOOT_SHUTDOWN_ACTION_POWER_ON = 4,
+        /// Reboot component into a mass storage mode.
+        REBOOT_SHUTDOWN_ACTION_REBOOT_TO_MASS_STORAGE = 5,
+    };
+    /// Actions for reading/writing parameters between persistent and volatile storage when using MAV_CMD_PREFLIGHT_STORAGE.
+    /// (Commonly parameters are loaded from persistent storage (flash/EEPROM) into volatile storage (RAM) on startup and written back when they are changed.)
+    pub const PREFLIGHT_STORAGE_PARAMETER_ACTION = enum(u8) {
+        /// Read all parameters from persistent storage. Replaces values in volatile storage.
+        PARAM_READ_PERSISTENT = 0,
+        /// Write all parameter values to persistent storage (flash/EEPROM)
+        PARAM_WRITE_PERSISTENT = 1,
+        /// Reset parameters to default values (such as sensor calibration, safety settings, and so on). Note that a flight stack may choose not to reset some parameters at their own discretion (such as those that are locked or expected to persist for the vehicle lifetime).
+        PARAM_RESET_FACTORY_DEFAULT = 2,
+        /// Reset only sensor calibration parameters to factory defaults (or firmware default if not available)
+        PARAM_RESET_SENSOR_DEFAULT = 3,
+        /// Reset all parameters to default values.
+        PARAM_RESET_ALL_DEFAULT = 4,
     };
     /// MAVLINK component type reported in HEARTBEAT message. Flight controllers must report the type of the vehicle on which they are mounted (e.g. MAV_TYPE_OCTOROTOR). All other components must report a value appropriate for their type (e.g. a camera must use MAV_TYPE_CAMERA).
     pub const MAV_TYPE = enum(u8) {
@@ -1785,51 +2062,51 @@ pub const enums = struct {
     /// Flags to report status/failure cases for a power generator (used in GENERATOR_STATUS). Note that FAULTS are conditions that cause the generator to fail. Warnings are conditions that require attention before the next use (they indicate the system is not operating properly).
     pub const MAV_GENERATOR_STATUS_FLAG = packed struct(u64) {
         /// Generator is off.
-        MAV_GENERATOR_STATUS_FLAG_OFF: bool,
+        MAV_GENERATOR_STATUS_FLAG_OFF: bool = false,
         /// Generator is ready to start generating power.
-        MAV_GENERATOR_STATUS_FLAG_READY: bool,
+        MAV_GENERATOR_STATUS_FLAG_READY: bool = false,
         /// Generator is generating power.
-        MAV_GENERATOR_STATUS_FLAG_GENERATING: bool,
+        MAV_GENERATOR_STATUS_FLAG_GENERATING: bool = false,
         /// Generator is charging the batteries (generating enough power to charge and provide the load).
-        MAV_GENERATOR_STATUS_FLAG_CHARGING: bool,
+        MAV_GENERATOR_STATUS_FLAG_CHARGING: bool = false,
         /// Generator is operating at a reduced maximum power.
-        MAV_GENERATOR_STATUS_FLAG_REDUCED_POWER: bool,
+        MAV_GENERATOR_STATUS_FLAG_REDUCED_POWER: bool = false,
         /// Generator is providing the maximum output.
-        MAV_GENERATOR_STATUS_FLAG_MAXPOWER: bool,
+        MAV_GENERATOR_STATUS_FLAG_MAXPOWER: bool = false,
         /// Generator is near the maximum operating temperature, cooling is insufficient.
-        MAV_GENERATOR_STATUS_FLAG_OVERTEMP_WARNING: bool,
+        MAV_GENERATOR_STATUS_FLAG_OVERTEMP_WARNING: bool = false,
         /// Generator hit the maximum operating temperature and shutdown.
-        MAV_GENERATOR_STATUS_FLAG_OVERTEMP_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_OVERTEMP_FAULT: bool = false,
         /// Power electronics are near the maximum operating temperature, cooling is insufficient.
-        MAV_GENERATOR_STATUS_FLAG_ELECTRONICS_OVERTEMP_WARNING: bool,
+        MAV_GENERATOR_STATUS_FLAG_ELECTRONICS_OVERTEMP_WARNING: bool = false,
         /// Power electronics hit the maximum operating temperature and shutdown.
-        MAV_GENERATOR_STATUS_FLAG_ELECTRONICS_OVERTEMP_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_ELECTRONICS_OVERTEMP_FAULT: bool = false,
         /// Power electronics experienced a fault and shutdown.
-        MAV_GENERATOR_STATUS_FLAG_ELECTRONICS_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_ELECTRONICS_FAULT: bool = false,
         /// The power source supplying the generator failed e.g. mechanical generator stopped, tether is no longer providing power, solar cell is in shade, hydrogen reaction no longer happening.
-        MAV_GENERATOR_STATUS_FLAG_POWERSOURCE_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_POWERSOURCE_FAULT: bool = false,
         /// Generator controller having communication problems.
-        MAV_GENERATOR_STATUS_FLAG_COMMUNICATION_WARNING: bool,
+        MAV_GENERATOR_STATUS_FLAG_COMMUNICATION_WARNING: bool = false,
         /// Power electronic or generator cooling system error.
-        MAV_GENERATOR_STATUS_FLAG_COOLING_WARNING: bool,
+        MAV_GENERATOR_STATUS_FLAG_COOLING_WARNING: bool = false,
         /// Generator controller power rail experienced a fault.
-        MAV_GENERATOR_STATUS_FLAG_POWER_RAIL_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_POWER_RAIL_FAULT: bool = false,
         /// Generator controller exceeded the overcurrent threshold and shutdown to prevent damage.
-        MAV_GENERATOR_STATUS_FLAG_OVERCURRENT_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_OVERCURRENT_FAULT: bool = false,
         /// Generator controller detected a high current going into the batteries and shutdown to prevent battery damage.
-        MAV_GENERATOR_STATUS_FLAG_BATTERY_OVERCHARGE_CURRENT_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_BATTERY_OVERCHARGE_CURRENT_FAULT: bool = false,
         /// Generator controller exceeded it's overvoltage threshold and shutdown to prevent it exceeding the voltage rating.
-        MAV_GENERATOR_STATUS_FLAG_OVERVOLTAGE_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_OVERVOLTAGE_FAULT: bool = false,
         /// Batteries are under voltage (generator will not start).
-        MAV_GENERATOR_STATUS_FLAG_BATTERY_UNDERVOLT_FAULT: bool,
+        MAV_GENERATOR_STATUS_FLAG_BATTERY_UNDERVOLT_FAULT: bool = false,
         /// Generator start is inhibited by e.g. a safety switch.
-        MAV_GENERATOR_STATUS_FLAG_START_INHIBITED: bool,
+        MAV_GENERATOR_STATUS_FLAG_START_INHIBITED: bool = false,
         /// Generator requires maintenance.
-        MAV_GENERATOR_STATUS_FLAG_MAINTENANCE_REQUIRED: bool,
+        MAV_GENERATOR_STATUS_FLAG_MAINTENANCE_REQUIRED: bool = false,
         /// Generator is not ready to generate yet.
-        MAV_GENERATOR_STATUS_FLAG_WARMING_UP: bool,
+        MAV_GENERATOR_STATUS_FLAG_WARMING_UP: bool = false,
         /// Generator is idle.
-        MAV_GENERATOR_STATUS_FLAG_IDLE: bool,
+        MAV_GENERATOR_STATUS_FLAG_IDLE: bool = false,
         reserved23: u1 = 0,
         reserved24: u1 = 0,
         reserved25: u1 = 0,
@@ -1899,21 +2176,21 @@ pub const enums = struct {
     };
     pub const GPS_INPUT_IGNORE_FLAGS = packed struct(u16) {
         /// ignore altitude field
-        GPS_INPUT_IGNORE_FLAG_ALT: bool,
+        GPS_INPUT_IGNORE_FLAG_ALT: bool = false,
         /// ignore hdop field
-        GPS_INPUT_IGNORE_FLAG_HDOP: bool,
+        GPS_INPUT_IGNORE_FLAG_HDOP: bool = false,
         /// ignore vdop field
-        GPS_INPUT_IGNORE_FLAG_VDOP: bool,
+        GPS_INPUT_IGNORE_FLAG_VDOP: bool = false,
         /// ignore horizontal velocity field (vn and ve)
-        GPS_INPUT_IGNORE_FLAG_VEL_HORIZ: bool,
+        GPS_INPUT_IGNORE_FLAG_VEL_HORIZ: bool = false,
         /// ignore vertical velocity field (vd)
-        GPS_INPUT_IGNORE_FLAG_VEL_VERT: bool,
+        GPS_INPUT_IGNORE_FLAG_VEL_VERT: bool = false,
         /// ignore speed accuracy field
-        GPS_INPUT_IGNORE_FLAG_SPEED_ACCURACY: bool,
+        GPS_INPUT_IGNORE_FLAG_SPEED_ACCURACY: bool = false,
         /// ignore horizontal accuracy field
-        GPS_INPUT_IGNORE_FLAG_HORIZONTAL_ACCURACY: bool,
+        GPS_INPUT_IGNORE_FLAG_HORIZONTAL_ACCURACY: bool = false,
         /// ignore vertical accuracy field
-        GPS_INPUT_IGNORE_FLAG_VERTICAL_ACCURACY: bool,
+        GPS_INPUT_IGNORE_FLAG_VERTICAL_ACCURACY: bool = false,
         reserved8: u1 = 0,
         reserved9: u1 = 0,
         reserved10: u1 = 0,
@@ -1926,11 +2203,11 @@ pub const enums = struct {
     /// Stream status flags (Bitmap)
     pub const VIDEO_STREAM_STATUS_FLAGS = packed struct(u16) {
         /// Stream is active (running)
-        VIDEO_STREAM_STATUS_FLAGS_RUNNING: bool,
+        VIDEO_STREAM_STATUS_FLAGS_RUNNING: bool = false,
         /// Stream is thermal imaging
-        VIDEO_STREAM_STATUS_FLAGS_THERMAL: bool,
+        VIDEO_STREAM_STATUS_FLAGS_THERMAL: bool = false,
         /// Stream can report absolute thermal range (see CAMERA_THERMAL_RANGE).
-        VIDEO_STREAM_STATUS_FLAGS_THERMAL_RANGE_ENABLED: bool,
+        VIDEO_STREAM_STATUS_FLAGS_THERMAL_RANGE_ENABLED: bool = false,
         reserved3: u1 = 0,
         reserved4: u1 = 0,
         reserved5: u1 = 0,
@@ -1954,6 +2231,13 @@ pub const enums = struct {
         MAV_ODID_CATEGORY_EU_SPECIFIC = 2,
         /// The category for the UA, according to the EU specification, is the Certified category.
         MAV_ODID_CATEGORY_EU_CERTIFIED = 3,
+    };
+    /// Possible safety switch states.
+    pub const SAFETY_SWITCH_STATE = enum(u8) {
+        /// Safety switch is engaged and vehicle should be safe to approach.
+        SAFETY_SWITCH_STATE_SAFE = 0,
+        /// Safety switch is NOT engaged and motors, propellers and other actuators should be considered active.
+        SAFETY_SWITCH_STATE_DANGEROUS = 1,
     };
     /// Standard modes with a well understood meaning across flight stacks and vehicle types.
     /// For example, most flight stack have the concept of a "return" or "RTL" mode that takes a vehicle to safety, even though the precise mechanics of this mode may differ.
@@ -2033,6 +2317,47 @@ pub const enums = struct {
         /// The vertical accuracy is smaller than 1 meter.
         MAV_ODID_VER_ACC_1_METER = 6,
     };
+    /// MAV FTP opcodes (may be used in FILE_TRANSFER_PROTOCOL). See https://mavlink.io/en/services/ftp.html.
+    pub const MAV_FTP_OPCODE = enum(u8) {
+        /// None. Ignored, always ACKed
+        MAV_FTP_OPCODE_NONE = 0,
+        /// TerminateSession: Terminates open Read session
+        MAV_FTP_OPCODE_TERMINATESESSION = 1,
+        /// ResetSessions: Terminates all open read sessions
+        MAV_FTP_OPCODE_RESETSESSION = 2,
+        /// ListDirectory. List files and directories in path from offset
+        MAV_FTP_OPCODE_LISTDIRECTORY = 3,
+        /// OpenFileRO: Opens file at path for reading, returns session
+        MAV_FTP_OPCODE_OPENFILERO = 4,
+        /// ReadFile: Reads size bytes from offset in session
+        MAV_FTP_OPCODE_READFILE = 5,
+        /// CreateFile: Creates file at path for writing, returns session
+        MAV_FTP_OPCODE_CREATEFILE = 6,
+        /// WriteFile: Writes size bytes to offset in session
+        MAV_FTP_OPCODE_WRITEFILE = 7,
+        /// RemoveFile: Remove file at path
+        MAV_FTP_OPCODE_REMOVEFILE = 8,
+        /// CreateDirectory: Creates directory at path
+        MAV_FTP_OPCODE_CREATEDIRECTORY = 9,
+        /// RemoveDirectory: Removes directory at path. The directory must be empty.
+        MAV_FTP_OPCODE_REMOVEDIRECTORY = 10,
+        /// OpenFileWO: Opens file at path for writing, returns session
+        MAV_FTP_OPCODE_OPENFILEWO = 11,
+        /// TruncateFile: Truncate file at path to offset length
+        MAV_FTP_OPCODE_TRUNCATEFILE = 12,
+        /// Rename: Rename path1 to path2
+        MAV_FTP_OPCODE_RENAME = 13,
+        /// CalcFileCRC32: Calculate CRC32 for file at path
+        MAV_FTP_OPCODE_CALCFILECRC = 14,
+        /// BurstReadFile: Burst download session file
+        MAV_FTP_OPCODE_BURSTREADFILE = 15,
+        /// ListDirectoryWithTime: List files and directories, along with last-modification timestamps, in path from offset. This is the same as ListDirectory except for the addition of timestamps. Servers that do not support this opcode respond with a NAK (MAV_FTP_ERR_UNKNOWNCOMMAND).
+        MAV_FTP_OPCODE_LISTDIRECTORYWITHTIME = 16,
+        /// ACK: ACK response
+        MAV_FTP_OPCODE_ACK = 128,
+        /// NAK: NAK response
+        MAV_FTP_OPCODE_NAK = 129,
+    };
     /// Battery mode. Note, the normal operation mode (i.e. when flying) should be reported as MAV_BATTERY_MODE_UNKNOWN to allow message trimming in normal flight.
     pub const MAV_BATTERY_MODE = enum(u8) {
         /// Battery mode not supported/unknown battery mode/normal operation.
@@ -2045,100 +2370,100 @@ pub const enums = struct {
     /// These encode the sensors whose status is sent as part of the SYS_STATUS message.
     pub const MAV_SYS_STATUS_SENSOR = packed struct(u32) {
         /// 0x01 3D gyro
-        MAV_SYS_STATUS_SENSOR_3D_GYRO: bool,
+        MAV_SYS_STATUS_SENSOR_3D_GYRO: bool = false,
         /// 0x02 3D accelerometer
-        MAV_SYS_STATUS_SENSOR_3D_ACCEL: bool,
+        MAV_SYS_STATUS_SENSOR_3D_ACCEL: bool = false,
         /// 0x04 3D magnetometer
-        MAV_SYS_STATUS_SENSOR_3D_MAG: bool,
+        MAV_SYS_STATUS_SENSOR_3D_MAG: bool = false,
         /// 0x08 absolute pressure
-        MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE: bool,
+        MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE: bool = false,
         /// 0x10 differential pressure
-        MAV_SYS_STATUS_SENSOR_DIFFERENTIAL_PRESSURE: bool,
+        MAV_SYS_STATUS_SENSOR_DIFFERENTIAL_PRESSURE: bool = false,
         /// 0x20 GPS
-        MAV_SYS_STATUS_SENSOR_GPS: bool,
+        MAV_SYS_STATUS_SENSOR_GPS: bool = false,
         /// 0x40 optical flow
-        MAV_SYS_STATUS_SENSOR_OPTICAL_FLOW: bool,
+        MAV_SYS_STATUS_SENSOR_OPTICAL_FLOW: bool = false,
         /// 0x80 computer vision position
-        MAV_SYS_STATUS_SENSOR_VISION_POSITION: bool,
+        MAV_SYS_STATUS_SENSOR_VISION_POSITION: bool = false,
         /// 0x100 laser based position
-        MAV_SYS_STATUS_SENSOR_LASER_POSITION: bool,
+        MAV_SYS_STATUS_SENSOR_LASER_POSITION: bool = false,
         /// 0x200 external ground truth (Vicon or Leica)
-        MAV_SYS_STATUS_SENSOR_EXTERNAL_GROUND_TRUTH: bool,
+        MAV_SYS_STATUS_SENSOR_EXTERNAL_GROUND_TRUTH: bool = false,
         /// 0x400 3D angular rate control
-        MAV_SYS_STATUS_SENSOR_ANGULAR_RATE_CONTROL: bool,
+        MAV_SYS_STATUS_SENSOR_ANGULAR_RATE_CONTROL: bool = false,
         /// 0x800 attitude stabilization
-        MAV_SYS_STATUS_SENSOR_ATTITUDE_STABILIZATION: bool,
+        MAV_SYS_STATUS_SENSOR_ATTITUDE_STABILIZATION: bool = false,
         /// 0x1000 yaw position
-        MAV_SYS_STATUS_SENSOR_YAW_POSITION: bool,
+        MAV_SYS_STATUS_SENSOR_YAW_POSITION: bool = false,
         /// 0x2000 z/altitude control
-        MAV_SYS_STATUS_SENSOR_Z_ALTITUDE_CONTROL: bool,
+        MAV_SYS_STATUS_SENSOR_Z_ALTITUDE_CONTROL: bool = false,
         /// 0x4000 x/y position control
-        MAV_SYS_STATUS_SENSOR_XY_POSITION_CONTROL: bool,
+        MAV_SYS_STATUS_SENSOR_XY_POSITION_CONTROL: bool = false,
         /// 0x8000 motor outputs / control
-        MAV_SYS_STATUS_SENSOR_MOTOR_OUTPUTS: bool,
+        MAV_SYS_STATUS_SENSOR_MOTOR_OUTPUTS: bool = false,
         /// 0x10000 RC receiver
-        MAV_SYS_STATUS_SENSOR_RC_RECEIVER: bool,
+        MAV_SYS_STATUS_SENSOR_RC_RECEIVER: bool = false,
         /// 0x20000 2nd 3D gyro
-        MAV_SYS_STATUS_SENSOR_3D_GYRO2: bool,
+        MAV_SYS_STATUS_SENSOR_3D_GYRO2: bool = false,
         /// 0x40000 2nd 3D accelerometer
-        MAV_SYS_STATUS_SENSOR_3D_ACCEL2: bool,
+        MAV_SYS_STATUS_SENSOR_3D_ACCEL2: bool = false,
         /// 0x80000 2nd 3D magnetometer
-        MAV_SYS_STATUS_SENSOR_3D_MAG2: bool,
+        MAV_SYS_STATUS_SENSOR_3D_MAG2: bool = false,
         /// 0x100000 geofence
-        MAV_SYS_STATUS_GEOFENCE: bool,
+        MAV_SYS_STATUS_GEOFENCE: bool = false,
         /// 0x200000 AHRS subsystem health
-        MAV_SYS_STATUS_AHRS: bool,
+        MAV_SYS_STATUS_AHRS: bool = false,
         /// 0x400000 Terrain subsystem health
-        MAV_SYS_STATUS_TERRAIN: bool,
+        MAV_SYS_STATUS_TERRAIN: bool = false,
         /// 0x800000 Motors are reversed
-        MAV_SYS_STATUS_REVERSE_MOTOR: bool,
+        MAV_SYS_STATUS_REVERSE_MOTOR: bool = false,
         /// 0x1000000 Logging
-        MAV_SYS_STATUS_LOGGING: bool,
+        MAV_SYS_STATUS_LOGGING: bool = false,
         /// 0x2000000 Battery
-        MAV_SYS_STATUS_SENSOR_BATTERY: bool,
+        MAV_SYS_STATUS_SENSOR_BATTERY: bool = false,
         /// 0x4000000 Proximity
-        MAV_SYS_STATUS_SENSOR_PROXIMITY: bool,
+        MAV_SYS_STATUS_SENSOR_PROXIMITY: bool = false,
         /// 0x8000000 Satellite Communication
-        MAV_SYS_STATUS_SENSOR_SATCOM: bool,
+        MAV_SYS_STATUS_SENSOR_SATCOM: bool = false,
         /// 0x10000000 pre-arm check status. Always healthy when armed
-        MAV_SYS_STATUS_PREARM_CHECK: bool,
+        MAV_SYS_STATUS_PREARM_CHECK: bool = false,
         /// 0x20000000 Avoidance/collision prevention
-        MAV_SYS_STATUS_OBSTACLE_AVOIDANCE: bool,
+        MAV_SYS_STATUS_OBSTACLE_AVOIDANCE: bool = false,
         /// 0x40000000 propulsion (actuator, esc, motor or propellor)
-        MAV_SYS_STATUS_SENSOR_PROPULSION: bool,
+        MAV_SYS_STATUS_SENSOR_PROPULSION: bool = false,
         /// 0x80000000 Extended bit-field are used for further sensor status bits (needs to be set in onboard_control_sensors_present only)
-        MAV_SYS_STATUS_EXTENSION_USED: bool,
+        MAV_SYS_STATUS_EXTENSION_USED: bool = false,
     };
     /// Flags to report failure cases over the high latency telemetry.
     pub const HL_FAILURE_FLAG = packed struct(u16) {
         /// GPS failure.
-        HL_FAILURE_FLAG_GPS: bool,
+        HL_FAILURE_FLAG_GPS: bool = false,
         /// Differential pressure sensor failure.
-        HL_FAILURE_FLAG_DIFFERENTIAL_PRESSURE: bool,
+        HL_FAILURE_FLAG_DIFFERENTIAL_PRESSURE: bool = false,
         /// Absolute pressure sensor failure.
-        HL_FAILURE_FLAG_ABSOLUTE_PRESSURE: bool,
+        HL_FAILURE_FLAG_ABSOLUTE_PRESSURE: bool = false,
         /// Accelerometer sensor failure.
-        HL_FAILURE_FLAG_3D_ACCEL: bool,
+        HL_FAILURE_FLAG_3D_ACCEL: bool = false,
         /// Gyroscope sensor failure.
-        HL_FAILURE_FLAG_3D_GYRO: bool,
+        HL_FAILURE_FLAG_3D_GYRO: bool = false,
         /// Magnetometer sensor failure.
-        HL_FAILURE_FLAG_3D_MAG: bool,
+        HL_FAILURE_FLAG_3D_MAG: bool = false,
         /// Terrain subsystem failure.
-        HL_FAILURE_FLAG_TERRAIN: bool,
+        HL_FAILURE_FLAG_TERRAIN: bool = false,
         /// Battery failure/critical low battery.
-        HL_FAILURE_FLAG_BATTERY: bool,
+        HL_FAILURE_FLAG_BATTERY: bool = false,
         /// RC receiver failure/no RC connection.
-        HL_FAILURE_FLAG_RC_RECEIVER: bool,
+        HL_FAILURE_FLAG_RC_RECEIVER: bool = false,
         /// Offboard link failure.
-        HL_FAILURE_FLAG_OFFBOARD_LINK: bool,
+        HL_FAILURE_FLAG_OFFBOARD_LINK: bool = false,
         /// Engine failure.
-        HL_FAILURE_FLAG_ENGINE: bool,
+        HL_FAILURE_FLAG_ENGINE: bool = false,
         /// Geofence violation.
-        HL_FAILURE_FLAG_GEOFENCE: bool,
+        HL_FAILURE_FLAG_GEOFENCE: bool = false,
         /// Estimator failure, for example measurement rejection or large variances.
-        HL_FAILURE_FLAG_ESTIMATOR: bool,
+        HL_FAILURE_FLAG_ESTIMATOR: bool = false,
         /// Mission failure.
-        HL_FAILURE_FLAG_MISSION: bool,
+        HL_FAILURE_FLAG_MISSION: bool = false,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
     };
@@ -2265,19 +2590,19 @@ pub const enums = struct {
     /// Flags to report ESC failures.
     pub const ESC_FAILURE_FLAGS = packed struct(u16) {
         /// Over current failure.
-        ESC_FAILURE_OVER_CURRENT: bool,
+        ESC_FAILURE_OVER_CURRENT: bool = false,
         /// Over voltage failure.
-        ESC_FAILURE_OVER_VOLTAGE: bool,
+        ESC_FAILURE_OVER_VOLTAGE: bool = false,
         /// Over temperature failure.
-        ESC_FAILURE_OVER_TEMPERATURE: bool,
+        ESC_FAILURE_OVER_TEMPERATURE: bool = false,
         /// Over RPM failure.
-        ESC_FAILURE_OVER_RPM: bool,
+        ESC_FAILURE_OVER_RPM: bool = false,
         /// Inconsistent command failure i.e. out of bounds.
-        ESC_FAILURE_INCONSISTENT_CMD: bool,
+        ESC_FAILURE_INCONSISTENT_CMD: bool = false,
         /// Motor stuck failure.
-        ESC_FAILURE_MOTOR_STUCK: bool,
+        ESC_FAILURE_MOTOR_STUCK: bool = false,
         /// Generic ESC failure.
-        ESC_FAILURE_GENERIC: bool,
+        ESC_FAILURE_GENERIC: bool = false,
         reserved7: u1 = 0,
         reserved8: u1 = 0,
         reserved9: u1 = 0,
@@ -2298,6 +2623,15 @@ pub const enums = struct {
         CELLULAR_NETWORK_FAILED_REASON_SIM_MISSING = 2,
         /// SIM is available, but not usable for connection
         CELLULAR_NETWORK_FAILED_REASON_SIM_ERROR = 3,
+    };
+    /// Parachute actions. Trigger release and enable/disable auto-release.
+    pub const PARACHUTE_ACTION = enum(u8) {
+        /// Disable auto-release of parachute (i.e. release triggered by crash detectors).
+        PARACHUTE_DISABLE = 0,
+        /// Enable auto-release of parachute.
+        PARACHUTE_ENABLE = 1,
+        /// Release parachute and kill motors.
+        PARACHUTE_RELEASE = 2,
     };
     /// Commands to be executed by the MAV. They can be executed on user request, or as part of a mission script. If the action is used in a mission, the parameter mapping to the waypoint/mission message is as follows: Param 1, Param 2, Param 3, Param 4, X: Param 5, Y:Param 6, Z:Param 7. This command list is similar what ARINC 424 is for commercial aircraft: A data format how to interpret waypoint/mission data. NaN and INT32_MAX may be used in float/integer params (respectively) to indicate optional/default values (e.g. to use the component's current yaw or latitude rather than a specific value). See https://mavlink.io/en/guide/xml_schema.html#MAV_CMD for information about the structure of the MAV_CMD entries
     pub const MAV_CMD = enum(u16) {
@@ -2717,6 +3051,75 @@ pub const enums = struct {
         /// Request forwarding of CAN packets from the given CAN bus to this component via this MAVLink channel. CAN Frames are sent using CAN_FRAME and CANFD_FRAME messages
         MAV_CMD_CAN_FORWARD = 32000,
     };
+    /// Actuator output function. Values greater or equal to 1000 are autopilot-specific.
+    pub const ACTUATOR_OUTPUT_FUNCTION = enum(u8) {
+        /// No function (disabled).
+        ACTUATOR_OUTPUT_FUNCTION_NONE = 0,
+        /// Motor 1
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR1 = 1,
+        /// Motor 2
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR2 = 2,
+        /// Motor 3
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR3 = 3,
+        /// Motor 4
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR4 = 4,
+        /// Motor 5
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR5 = 5,
+        /// Motor 6
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR6 = 6,
+        /// Motor 7
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR7 = 7,
+        /// Motor 8
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR8 = 8,
+        /// Motor 9
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR9 = 9,
+        /// Motor 10
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR10 = 10,
+        /// Motor 11
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR11 = 11,
+        /// Motor 12
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR12 = 12,
+        /// Motor 13
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR13 = 13,
+        /// Motor 14
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR14 = 14,
+        /// Motor 15
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR15 = 15,
+        /// Motor 16
+        ACTUATOR_OUTPUT_FUNCTION_MOTOR16 = 16,
+        /// Servo 1
+        ACTUATOR_OUTPUT_FUNCTION_SERVO1 = 33,
+        /// Servo 2
+        ACTUATOR_OUTPUT_FUNCTION_SERVO2 = 34,
+        /// Servo 3
+        ACTUATOR_OUTPUT_FUNCTION_SERVO3 = 35,
+        /// Servo 4
+        ACTUATOR_OUTPUT_FUNCTION_SERVO4 = 36,
+        /// Servo 5
+        ACTUATOR_OUTPUT_FUNCTION_SERVO5 = 37,
+        /// Servo 6
+        ACTUATOR_OUTPUT_FUNCTION_SERVO6 = 38,
+        /// Servo 7
+        ACTUATOR_OUTPUT_FUNCTION_SERVO7 = 39,
+        /// Servo 8
+        ACTUATOR_OUTPUT_FUNCTION_SERVO8 = 40,
+        /// Servo 9
+        ACTUATOR_OUTPUT_FUNCTION_SERVO9 = 41,
+        /// Servo 10
+        ACTUATOR_OUTPUT_FUNCTION_SERVO10 = 42,
+        /// Servo 11
+        ACTUATOR_OUTPUT_FUNCTION_SERVO11 = 43,
+        /// Servo 12
+        ACTUATOR_OUTPUT_FUNCTION_SERVO12 = 44,
+        /// Servo 13
+        ACTUATOR_OUTPUT_FUNCTION_SERVO13 = 45,
+        /// Servo 14
+        ACTUATOR_OUTPUT_FUNCTION_SERVO14 = 46,
+        /// Servo 15
+        ACTUATOR_OUTPUT_FUNCTION_SERVO15 = 47,
+        /// Servo 16
+        ACTUATOR_OUTPUT_FUNCTION_SERVO16 = 48,
+    };
     pub const MAV_ODID_STATUS = enum(u8) {
         /// The status of the (UA) Unmanned Aircraft is undefined.
         MAV_ODID_STATUS_UNDECLARED = 0,
@@ -2732,21 +3135,21 @@ pub const enums = struct {
     /// These encode the sensors whose status is sent as part of the SYS_STATUS message in the extended fields.
     pub const MAV_SYS_STATUS_SENSOR_EXTENDED = packed struct(u32) {
         /// 0x01 Recovery system (parachute, balloon, retracts etc)
-        MAV_SYS_STATUS_RECOVERY_SYSTEM: bool,
+        MAV_SYS_STATUS_RECOVERY_SYSTEM: bool = false,
         /// 0x02 Leak detection
-        MAV_SYS_STATUS_SENSOR_LEAK: bool,
+        MAV_SYS_STATUS_SENSOR_LEAK: bool = false,
         /// 0x04 3rd 3D gyro
-        MAV_SYS_STATUS_SENSOR_3D_GYRO3: bool,
+        MAV_SYS_STATUS_SENSOR_3D_GYRO3: bool = false,
         /// 0x08 3rd 3D accelerometer
-        MAV_SYS_STATUS_SENSOR_3D_ACCEL3: bool,
+        MAV_SYS_STATUS_SENSOR_3D_ACCEL3: bool = false,
         /// 0x10 4th 3D gyro
-        MAV_SYS_STATUS_SENSOR_3D_GYRO4: bool,
+        MAV_SYS_STATUS_SENSOR_3D_GYRO4: bool = false,
         /// 0x20 4th 3D accelerometer
-        MAV_SYS_STATUS_SENSOR_3D_ACCEL4: bool,
+        MAV_SYS_STATUS_SENSOR_3D_ACCEL4: bool = false,
         /// 0x40 3rd 3D magnetometer
-        MAV_SYS_STATUS_SENSOR_3D_MAG3: bool,
+        MAV_SYS_STATUS_SENSOR_3D_MAG3: bool = false,
         /// 0x80 4th 3D magnetometer
-        MAV_SYS_STATUS_SENSOR_3D_MAG4: bool,
+        MAV_SYS_STATUS_SENSOR_3D_MAG4: bool = false,
         reserved8: u1 = 0,
         reserved9: u1 = 0,
         reserved10: u1 = 0,
@@ -2775,16 +3178,25 @@ pub const enums = struct {
     /// Camera tracking target data (shows where tracked target is within image)
     pub const CAMERA_TRACKING_TARGET_DATA = packed struct(u8) {
         /// Target data embedded in image data (proprietary)
-        CAMERA_TRACKING_TARGET_DATA_EMBEDDED: bool,
+        CAMERA_TRACKING_TARGET_DATA_EMBEDDED: bool = false,
         /// Target data rendered in image
-        CAMERA_TRACKING_TARGET_DATA_RENDERED: bool,
+        CAMERA_TRACKING_TARGET_DATA_RENDERED: bool = false,
         /// Target data within status message (Point or Rectangle)
-        CAMERA_TRACKING_TARGET_DATA_IN_STATUS: bool,
+        CAMERA_TRACKING_TARGET_DATA_IN_STATUS: bool = false,
         reserved3: u1 = 0,
         reserved4: u1 = 0,
         reserved5: u1 = 0,
         reserved6: u1 = 0,
         reserved7: u1 = 0,
+    };
+    /// Gripper actions.
+    pub const GRIPPER_ACTIONS = enum(u8) {
+        /// Gripper release cargo.
+        GRIPPER_ACTION_RELEASE = 0,
+        /// Gripper grab onto cargo.
+        GRIPPER_ACTION_GRAB = 1,
+        /// Gripper hold current grip state/position.
+        GRIPPER_ACTION_HOLD = 2,
     };
     /// These flags encode the cellular network status
     pub const CELLULAR_STATUS_FLAG = enum(u8) {
@@ -2828,28 +3240,39 @@ pub const enums = struct {
         CAN_FILTER_ADD = 1,
         CAN_FILTER_REMOVE = 2,
     };
+    /// Speed setpoint types used in MAV_CMD_DO_CHANGE_SPEED
+    pub const SPEED_TYPE = enum(u8) {
+        /// Airspeed
+        SPEED_TYPE_AIRSPEED = 0,
+        /// Groundspeed
+        SPEED_TYPE_GROUNDSPEED = 1,
+        /// Climb speed
+        SPEED_TYPE_CLIMB_SPEED = 2,
+        /// Descent speed
+        SPEED_TYPE_DESCENT_SPEED = 3,
+    };
     /// Flags for high level gimbal manager operation The first 16 bits are identical to the GIMBAL_DEVICE_FLAGS.
     pub const GIMBAL_MANAGER_FLAGS = packed struct(u32) {
         /// Based on GIMBAL_DEVICE_FLAGS_RETRACT.
-        GIMBAL_MANAGER_FLAGS_RETRACT: bool,
+        GIMBAL_MANAGER_FLAGS_RETRACT: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_NEUTRAL.
-        GIMBAL_MANAGER_FLAGS_NEUTRAL: bool,
+        GIMBAL_MANAGER_FLAGS_NEUTRAL: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_ROLL_LOCK.
-        GIMBAL_MANAGER_FLAGS_ROLL_LOCK: bool,
+        GIMBAL_MANAGER_FLAGS_ROLL_LOCK: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_PITCH_LOCK.
-        GIMBAL_MANAGER_FLAGS_PITCH_LOCK: bool,
+        GIMBAL_MANAGER_FLAGS_PITCH_LOCK: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_YAW_LOCK.
-        GIMBAL_MANAGER_FLAGS_YAW_LOCK: bool,
+        GIMBAL_MANAGER_FLAGS_YAW_LOCK: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_YAW_IN_VEHICLE_FRAME.
-        GIMBAL_MANAGER_FLAGS_YAW_IN_VEHICLE_FRAME: bool,
+        GIMBAL_MANAGER_FLAGS_YAW_IN_VEHICLE_FRAME: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME.
-        GIMBAL_MANAGER_FLAGS_YAW_IN_EARTH_FRAME: bool,
+        GIMBAL_MANAGER_FLAGS_YAW_IN_EARTH_FRAME: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME.
-        GIMBAL_MANAGER_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME: bool,
+        GIMBAL_MANAGER_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_RC_EXCLUSIVE.
-        GIMBAL_MANAGER_FLAGS_RC_EXCLUSIVE: bool,
+        GIMBAL_MANAGER_FLAGS_RC_EXCLUSIVE: bool = false,
         /// Based on GIMBAL_DEVICE_FLAGS_RC_MIXED.
-        GIMBAL_MANAGER_FLAGS_RC_MIXED: bool,
+        GIMBAL_MANAGER_FLAGS_RC_MIXED: bool = false,
         reserved10: u1 = 0,
         reserved11: u1 = 0,
         reserved12: u1 = 0,
@@ -2872,6 +3295,17 @@ pub const enums = struct {
         reserved29: u1 = 0,
         reserved30: u1 = 0,
         reserved31: u1 = 0,
+    };
+    /// Defines how throttle value is represented in MAV_CMD_DO_MOTOR_TEST.
+    pub const MOTOR_TEST_THROTTLE_TYPE = enum(u8) {
+        /// Throttle as a percentage (0 ~ 100)
+        MOTOR_TEST_THROTTLE_PERCENT = 0,
+        /// Throttle as an absolute PWM value (normally in range of 1000~2000).
+        MOTOR_TEST_THROTTLE_PWM = 1,
+        /// Throttle pass-through from pilot's transmitter.
+        MOTOR_TEST_THROTTLE_PILOT = 2,
+        /// Per-motor compass calibration test.
+        MOTOR_TEST_COMPASS_CAL = 3,
     };
     /// Video stream encodings
     pub const VIDEO_STREAM_ENCODING = enum(u8) {
@@ -2896,25 +3330,25 @@ pub const enums = struct {
     /// Gimbal device (low level) error flags (bitmap, 0 means no error)
     pub const GIMBAL_DEVICE_ERROR_FLAGS = packed struct(u32) {
         /// Gimbal device is limited by hardware roll limit.
-        GIMBAL_DEVICE_ERROR_FLAGS_AT_ROLL_LIMIT: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_AT_ROLL_LIMIT: bool = false,
         /// Gimbal device is limited by hardware pitch limit.
-        GIMBAL_DEVICE_ERROR_FLAGS_AT_PITCH_LIMIT: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_AT_PITCH_LIMIT: bool = false,
         /// Gimbal device is limited by hardware yaw limit.
-        GIMBAL_DEVICE_ERROR_FLAGS_AT_YAW_LIMIT: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_AT_YAW_LIMIT: bool = false,
         /// There is an error with the gimbal encoders.
-        GIMBAL_DEVICE_ERROR_FLAGS_ENCODER_ERROR: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_ENCODER_ERROR: bool = false,
         /// There is an error with the gimbal power source.
-        GIMBAL_DEVICE_ERROR_FLAGS_POWER_ERROR: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_POWER_ERROR: bool = false,
         /// There is an error with the gimbal motors.
-        GIMBAL_DEVICE_ERROR_FLAGS_MOTOR_ERROR: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_MOTOR_ERROR: bool = false,
         /// There is an error with the gimbal's software.
-        GIMBAL_DEVICE_ERROR_FLAGS_SOFTWARE_ERROR: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_SOFTWARE_ERROR: bool = false,
         /// There is an error with the gimbal's communication.
-        GIMBAL_DEVICE_ERROR_FLAGS_COMMS_ERROR: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_COMMS_ERROR: bool = false,
         /// Gimbal device is currently calibrating.
-        GIMBAL_DEVICE_ERROR_FLAGS_CALIBRATION_RUNNING: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_CALIBRATION_RUNNING: bool = false,
         /// Gimbal device is not assigned to a gimbal manager.
-        GIMBAL_DEVICE_ERROR_FLAGS_NO_MANAGER: bool,
+        GIMBAL_DEVICE_ERROR_FLAGS_NO_MANAGER: bool = false,
         reserved10: u1 = 0,
         reserved11: u1 = 0,
         reserved12: u1 = 0,
@@ -3081,17 +3515,40 @@ pub const enums = struct {
     /// Bitmask indicating which fields contain valid data in a FOLLOW_TARGET message (lat/lon/alt, vel, acc, attitude_q, rates). If a bit is unset, the corresponding field(s) are zero-filled and should be ignored.
     pub const FOLLOW_TARGET_CAP_FLAGS = packed struct(u8) {
         /// Position estimate is valid (lat/lon/alt).
-        FOLLOW_TARGET_CAP_FLAGS_POS: bool,
+        FOLLOW_TARGET_CAP_FLAGS_POS: bool = false,
         /// Velocity estimate is valid (vel field).
-        FOLLOW_TARGET_CAP_FLAGS_VEL: bool,
+        FOLLOW_TARGET_CAP_FLAGS_VEL: bool = false,
         /// Acceleration estimate is valid (acc field).
-        FOLLOW_TARGET_CAP_FLAGS_ACCEL: bool,
+        FOLLOW_TARGET_CAP_FLAGS_ACCEL: bool = false,
         /// Attitude and angular rate estimates are valid (attitude_q and rates fields).
-        FOLLOW_TARGET_CAP_FLAGS_ATT_RATES: bool,
+        FOLLOW_TARGET_CAP_FLAGS_ATT_RATES: bool = false,
         reserved4: u1 = 0,
         reserved5: u1 = 0,
         reserved6: u1 = 0,
         reserved7: u1 = 0,
+    };
+    /// Winch actions.
+    pub const WINCH_ACTIONS = enum(u8) {
+        /// Allow motor to freewheel.
+        WINCH_RELAXED = 0,
+        /// Wind or unwind specified length of line, optionally using specified rate.
+        WINCH_RELATIVE_LENGTH_CONTROL = 1,
+        /// Wind or unwind line at specified rate.
+        WINCH_RATE_CONTROL = 2,
+        /// Perform the locking sequence to relieve motor while in the fully retracted position. Only action and instance command parameters are used, others are ignored.
+        WINCH_LOCK = 3,
+        /// Sequence of drop, slow down, touch down, reel up, lock. Only action and instance command parameters are used, others are ignored.
+        WINCH_DELIVER = 4,
+        /// Engage motor and hold current position. Only action and instance command parameters are used, others are ignored.
+        WINCH_HOLD = 5,
+        /// Return the reel to the fully retracted position. Only action and instance command parameters are used, others are ignored.
+        WINCH_RETRACT = 6,
+        /// Load the reel with line. The winch will calculate the total loaded length and stop when the tension exceeds a threshold. Only action and instance command parameters are used, others are ignored.
+        WINCH_LOAD_LINE = 7,
+        /// Spool out the entire length of the line. Only action and instance command parameters are used, others are ignored.
+        WINCH_ABANDON_LINE = 8,
+        /// Spools out just enough to present the hook to the user to load the payload. Only action and instance command parameters are used, others are ignored
+        WINCH_LOAD_PAYLOAD = 9,
     };
     /// Fuel types for use in FUEL_TYPE. Fuel types specify the units for the maximum, available and consumed fuel, and for the flow rates.
     pub const MAV_FUEL_TYPE = enum(u32) {
@@ -3111,10 +3568,304 @@ pub const enums = struct {
         /// Illuminator behavior is controlled by external factors: e.g. an external hardware signal
         ILLUMINATOR_MODE_EXTERNAL_SYNC = 2,
     };
+    /// Legacy component ID values for particular types of hardware/software that might make up a MAVLink system (autopilot, cameras, servos, avoidance systems etc.).
+    /// Components are not required or expected to use IDs with names that correspond to their type or function, but may choose to do so.
+    /// Using an ID that matches the type may slightly reduce the chances of component id clashes, as, for historical reasons, it is less likely to be used by some other type of component.
+    /// System integration will still need to ensure that all components have unique IDs.
+    /// Component IDs are used for addressing messages to a particular component within a system.
+    /// A component can use any unique ID between 1 and 255 (MAV_COMP_ID_ALL value is the broadcast address, used to send to all components).
+    /// Historically component ID were also used for identifying the type of component.
+    /// New code must not use component IDs to infer the component type, but instead check the MAV_TYPE in the HEARTBEAT message!
+    pub const MAV_COMPONENT = enum(u8) {
+        /// Target id (target_component) used to broadcast messages to all components of the receiving system. Components should attempt to process messages with this component ID and forward to components on any other interfaces. Note: This is not a valid *source* component id for a message.
+        MAV_COMP_ID_ALL = 0,
+        /// System flight controller component ("autopilot"). Only one autopilot is expected in a particular system.
+        MAV_COMP_ID_AUTOPILOT1 = 1,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER1 = 25,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER2 = 26,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER3 = 27,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER4 = 28,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER5 = 29,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER6 = 30,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER7 = 31,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER8 = 32,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER9 = 33,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER10 = 34,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER11 = 35,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER12 = 36,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER13 = 37,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER14 = 38,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER15 = 39,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER16 = 40,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER17 = 41,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER18 = 42,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER19 = 43,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER20 = 44,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER21 = 45,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER22 = 46,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER23 = 47,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER24 = 48,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER25 = 49,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER26 = 50,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER27 = 51,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER28 = 52,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER29 = 53,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER30 = 54,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER31 = 55,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER32 = 56,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER33 = 57,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER34 = 58,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER35 = 59,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER36 = 60,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER37 = 61,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER38 = 62,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER39 = 63,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER40 = 64,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER41 = 65,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER42 = 66,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER43 = 67,
+        /// Telemetry radio (e.g. SiK radio, or other component that emits RADIO_STATUS messages).
+        MAV_COMP_ID_TELEMETRY_RADIO = 68,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER45 = 69,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER46 = 70,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER47 = 71,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER48 = 72,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER49 = 73,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER50 = 74,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER51 = 75,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER52 = 76,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER53 = 77,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER54 = 78,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER55 = 79,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER56 = 80,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER57 = 81,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER58 = 82,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER59 = 83,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER60 = 84,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER61 = 85,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER62 = 86,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER63 = 87,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER64 = 88,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER65 = 89,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER66 = 90,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER67 = 91,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER68 = 92,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER69 = 93,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER70 = 94,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER71 = 95,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER72 = 96,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER73 = 97,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER74 = 98,
+        /// Id for a component on privately managed MAVLink network. Can be used for any purpose but may not be published by components outside of the private network.
+        MAV_COMP_ID_USER75 = 99,
+        /// Camera #1.
+        MAV_COMP_ID_CAMERA = 100,
+        /// Camera #2.
+        MAV_COMP_ID_CAMERA2 = 101,
+        /// Camera #3.
+        MAV_COMP_ID_CAMERA3 = 102,
+        /// Camera #4.
+        MAV_COMP_ID_CAMERA4 = 103,
+        /// Camera #5.
+        MAV_COMP_ID_CAMERA5 = 104,
+        /// Camera #6.
+        MAV_COMP_ID_CAMERA6 = 105,
+        /// Radio #1.
+        MAV_COMP_ID_RADIO = 110,
+        /// Radio #2.
+        MAV_COMP_ID_RADIO2 = 111,
+        /// Radio #3.
+        MAV_COMP_ID_RADIO3 = 112,
+        /// Servo #1.
+        MAV_COMP_ID_SERVO1 = 140,
+        /// Servo #2.
+        MAV_COMP_ID_SERVO2 = 141,
+        /// Servo #3.
+        MAV_COMP_ID_SERVO3 = 142,
+        /// Servo #4.
+        MAV_COMP_ID_SERVO4 = 143,
+        /// Servo #5.
+        MAV_COMP_ID_SERVO5 = 144,
+        /// Servo #6.
+        MAV_COMP_ID_SERVO6 = 145,
+        /// Servo #7.
+        MAV_COMP_ID_SERVO7 = 146,
+        /// Servo #8.
+        MAV_COMP_ID_SERVO8 = 147,
+        /// Servo #9.
+        MAV_COMP_ID_SERVO9 = 148,
+        /// Servo #10.
+        MAV_COMP_ID_SERVO10 = 149,
+        /// Servo #11.
+        MAV_COMP_ID_SERVO11 = 150,
+        /// Servo #12.
+        MAV_COMP_ID_SERVO12 = 151,
+        /// Servo #13.
+        MAV_COMP_ID_SERVO13 = 152,
+        /// Servo #14.
+        MAV_COMP_ID_SERVO14 = 153,
+        /// Gimbal #1.
+        MAV_COMP_ID_GIMBAL = 154,
+        /// Logging component.
+        MAV_COMP_ID_LOG = 155,
+        /// Automatic Dependent Surveillance-Broadcast (ADS-B) component.
+        MAV_COMP_ID_ADSB = 156,
+        /// On Screen Display (OSD) devices for video links.
+        MAV_COMP_ID_OSD = 157,
+        /// Generic autopilot peripheral component ID. Meant for devices that do not implement the parameter microservice.
+        MAV_COMP_ID_PERIPHERAL = 158,
+        /// Gimbal ID for QX1.
+        /// DEPRECATED(2018-11)
+        /// Replaced by: MAV_COMP_ID_GIMBAL
+        /// All gimbals should use MAV_COMP_ID_GIMBAL.
+        MAV_COMP_ID_QX1_GIMBAL = 159,
+        /// FLARM collision alert component.
+        MAV_COMP_ID_FLARM = 160,
+        /// Parachute component.
+        MAV_COMP_ID_PARACHUTE = 161,
+        /// Winch component.
+        MAV_COMP_ID_WINCH = 169,
+        /// Gimbal #2.
+        MAV_COMP_ID_GIMBAL2 = 171,
+        /// Gimbal #3.
+        MAV_COMP_ID_GIMBAL3 = 172,
+        /// Gimbal #4
+        MAV_COMP_ID_GIMBAL4 = 173,
+        /// Gimbal #5.
+        MAV_COMP_ID_GIMBAL5 = 174,
+        /// Gimbal #6.
+        MAV_COMP_ID_GIMBAL6 = 175,
+        /// Battery #1.
+        MAV_COMP_ID_BATTERY = 180,
+        /// Battery #2.
+        MAV_COMP_ID_BATTERY2 = 181,
+        /// CAN over MAVLink client.
+        MAV_COMP_ID_MAVCAN = 189,
+        /// Component that can generate/supply a mission flight plan (e.g. GCS or developer API).
+        MAV_COMP_ID_MISSIONPLANNER = 190,
+        /// Component that lives on the onboard computer (companion computer) and has some generic functionalities, such as settings system parameters and monitoring the status of some processes that don't directly speak mavlink and so on.
+        MAV_COMP_ID_ONBOARD_COMPUTER = 191,
+        /// Component that lives on the onboard computer (companion computer) and has some generic functionalities, such as settings system parameters and monitoring the status of some processes that don't directly speak mavlink and so on.
+        MAV_COMP_ID_ONBOARD_COMPUTER2 = 192,
+        /// Component that lives on the onboard computer (companion computer) and has some generic functionalities, such as settings system parameters and monitoring the status of some processes that don't directly speak mavlink and so on.
+        MAV_COMP_ID_ONBOARD_COMPUTER3 = 193,
+        /// Component that lives on the onboard computer (companion computer) and has some generic functionalities, such as settings system parameters and monitoring the status of some processes that don't directly speak mavlink and so on.
+        MAV_COMP_ID_ONBOARD_COMPUTER4 = 194,
+        /// Component that finds an optimal path between points based on a certain constraint (e.g. minimum snap, shortest path, cost, etc.).
+        MAV_COMP_ID_PATHPLANNER = 195,
+        /// Component that plans a collision free path between two points.
+        MAV_COMP_ID_OBSTACLE_AVOIDANCE = 196,
+        /// Component that provides position estimates using VIO techniques.
+        MAV_COMP_ID_VISUAL_INERTIAL_ODOMETRY = 197,
+        /// Component that manages pairing of vehicle and GCS.
+        MAV_COMP_ID_PAIRING_MANAGER = 198,
+        /// Inertial Measurement Unit (IMU) #1.
+        MAV_COMP_ID_IMU = 200,
+        /// Inertial Measurement Unit (IMU) #2.
+        MAV_COMP_ID_IMU_2 = 201,
+        /// Inertial Measurement Unit (IMU) #3.
+        MAV_COMP_ID_IMU_3 = 202,
+        /// GPS #1.
+        MAV_COMP_ID_GPS = 220,
+        /// GPS #2.
+        MAV_COMP_ID_GPS2 = 221,
+        /// Open Drone ID transmitter/receiver (Bluetooth/WiFi/Internet).
+        MAV_COMP_ID_ODID_TXRX_1 = 236,
+        /// Open Drone ID transmitter/receiver (Bluetooth/WiFi/Internet).
+        MAV_COMP_ID_ODID_TXRX_2 = 237,
+        /// Open Drone ID transmitter/receiver (Bluetooth/WiFi/Internet).
+        MAV_COMP_ID_ODID_TXRX_3 = 238,
+        /// Component to bridge MAVLink to UDP (i.e. from a UART).
+        MAV_COMP_ID_UDP_BRIDGE = 240,
+        /// Component to bridge to UART (i.e. from UDP).
+        MAV_COMP_ID_UART_BRIDGE = 241,
+        /// Component handling TUNNEL messages (e.g. vendor specific GUI of a component).
+        MAV_COMP_ID_TUNNEL_NODE = 242,
+        /// Illuminator
+        MAV_COMP_ID_ILLUMINATOR = 243,
+        /// Deprecated, don't use. Component for handling system messages (e.g. to ARM, takeoff, etc.).
+        /// DEPRECATED(2018-11)
+        /// Replaced by: MAV_COMP_ID_ALL
+        /// System control does not require a separate component ID. Instead, system commands should be sent with target_component=MAV_COMP_ID_ALL allowing the target component to use any appropriate component id.
+        MAV_COMP_ID_SYSTEM_CONTROL = 250,
+    };
     /// Flags used in HIL_ACTUATOR_CONTROLS message.
     pub const HIL_ACTUATOR_CONTROLS_FLAGS = packed struct(u64) {
         /// Simulation is using lockstep
-        HIL_ACTUATOR_CONTROLS_FLAGS_LOCKSTEP: bool,
+        HIL_ACTUATOR_CONTROLS_FLAGS_LOCKSTEP: bool = false,
         reserved1: u1 = 0,
         reserved2: u1 = 0,
         reserved3: u1 = 0,
@@ -3182,19 +3933,19 @@ pub const enums = struct {
     /// Bitmap to indicate which dimensions should be ignored by the vehicle: a value of 0b00000000 indicates that none of the setpoint dimensions should be ignored.
     pub const ATTITUDE_TARGET_TYPEMASK = packed struct(u8) {
         /// Ignore body roll rate
-        ATTITUDE_TARGET_TYPEMASK_BODY_ROLL_RATE_IGNORE: bool,
+        ATTITUDE_TARGET_TYPEMASK_BODY_ROLL_RATE_IGNORE: bool = false,
         /// Ignore body pitch rate
-        ATTITUDE_TARGET_TYPEMASK_BODY_PITCH_RATE_IGNORE: bool,
+        ATTITUDE_TARGET_TYPEMASK_BODY_PITCH_RATE_IGNORE: bool = false,
         /// Ignore body yaw rate
-        ATTITUDE_TARGET_TYPEMASK_BODY_YAW_RATE_IGNORE: bool,
+        ATTITUDE_TARGET_TYPEMASK_BODY_YAW_RATE_IGNORE: bool = false,
         reserved3: u1 = 0,
         reserved4: u1 = 0,
         /// Use 3D body thrust setpoint instead of throttle
-        ATTITUDE_TARGET_TYPEMASK_THRUST_BODY_SET: bool,
+        ATTITUDE_TARGET_TYPEMASK_THRUST_BODY_SET: bool = false,
         /// Ignore throttle
-        ATTITUDE_TARGET_TYPEMASK_THROTTLE_IGNORE: bool,
+        ATTITUDE_TARGET_TYPEMASK_THROTTLE_IGNORE: bool = false,
         /// Ignore attitude
-        ATTITUDE_TARGET_TYPEMASK_ATTITUDE_IGNORE: bool,
+        ATTITUDE_TARGET_TYPEMASK_ATTITUDE_IGNORE: bool = false,
     };
     /// Enumeration of VTOL states
     pub const MAV_VTOL_STATE = enum(u8) {
@@ -3208,6 +3959,40 @@ pub const enums = struct {
         MAV_VTOL_STATE_MC = 3,
         /// VTOL is in fixed-wing state
         MAV_VTOL_STATE_FW = 4,
+    };
+    /// Zoom types for MAV_CMD_SET_CAMERA_ZOOM
+    pub const CAMERA_ZOOM_TYPE = enum(u8) {
+        /// Zoom one step increment (-1 for wide, 1 for tele)
+        ZOOM_TYPE_STEP = 0,
+        /// Continuous normalized zoom in/out rate until stopped. Range -1..1, negative: wide, positive: narrow/tele, 0 to stop zooming. Other values should be clipped to the range.
+        ZOOM_TYPE_CONTINUOUS = 1,
+        /// Zoom value as proportion of full camera range (a percentage value between 0.0 and 100.0)
+        ZOOM_TYPE_RANGE = 2,
+        /// Zoom value/variable focal length in millimetres. Note that there is no message to get the valid zoom range of the camera, so this can type can only be used for cameras where the zoom range is known (implying that this cannot reliably be used in a GCS for an arbitrary camera)
+        ZOOM_TYPE_FOCAL_LENGTH = 3,
+        /// Zoom value as horizontal field of view in degrees.
+        ZOOM_TYPE_HORIZONTAL_FOV = 4,
+    };
+    /// DEPRECATED(2018-01)
+    /// Replaced by: `MAV_CMD_DO_SET_ROI_*`
+    pub const MAV_ROI = enum(u8) {
+        /// No region of interest.
+        MAV_ROI_NONE = 0,
+        /// Point toward next waypoint, with optional pitch/roll/yaw offset.
+        MAV_ROI_WPNEXT = 1,
+        /// Point toward given waypoint.
+        MAV_ROI_WPINDEX = 2,
+        /// Point toward fixed location.
+        MAV_ROI_LOCATION = 3,
+        /// Point toward of given id.
+        MAV_ROI_TARGET = 4,
+    };
+    /// RC type. Used in MAV_CMD_START_RX_PAIR.
+    pub const RC_TYPE = enum(u8) {
+        /// Spektrum
+        RC_TYPE_SPEKTRUM = 0,
+        /// CRSF
+        RC_TYPE_CRSF = 1,
     };
     /// Navigational status of AIS vessel, enum duplicated from AIS standard, https://gpsd.gitlab.io/gpsd/AIVDM.html
     pub const AIS_NAV_STATUS = enum(u8) {
@@ -3299,16 +4084,37 @@ pub const enums = struct {
         /// Battery is charging.
         MAV_BATTERY_CHARGE_STATE_CHARGING = 7,
     };
+    /// List of possible failure type to inject.
+    pub const FAILURE_TYPE = enum(u8) {
+        /// No failure injected, used to reset a previous failure.
+        FAILURE_TYPE_OK = 0,
+        /// Sets unit off, so completely non-responsive.
+        FAILURE_TYPE_OFF = 1,
+        /// Unit is stuck e.g. keeps reporting the same value.
+        FAILURE_TYPE_STUCK = 2,
+        /// Unit is reporting complete garbage.
+        FAILURE_TYPE_GARBAGE = 3,
+        /// Unit is consistently wrong.
+        FAILURE_TYPE_WRONG = 4,
+        /// Unit is slow, so e.g. reporting at slower than expected rate.
+        FAILURE_TYPE_SLOW = 5,
+        /// Data of unit is delayed in time.
+        FAILURE_TYPE_DELAYED = 6,
+        /// Unit is sometimes working, sometimes not.
+        FAILURE_TYPE_INTERMITTENT = 7,
+        /// Unit is publishing plausible values but drifting away from true values.
+        FAILURE_TYPE_DRIFT = 8,
+    };
     /// Flags used to report computer status.
     pub const COMPUTER_STATUS_FLAGS = packed struct(u16) {
         /// Indicates if the system is experiencing voltage outside of acceptable range.
-        COMPUTER_STATUS_FLAGS_UNDER_VOLTAGE: bool,
+        COMPUTER_STATUS_FLAGS_UNDER_VOLTAGE: bool = false,
         /// Indicates if CPU throttling is active.
-        COMPUTER_STATUS_FLAGS_CPU_THROTTLE: bool,
+        COMPUTER_STATUS_FLAGS_CPU_THROTTLE: bool = false,
         /// Indicates if thermal throttling is active.
-        COMPUTER_STATUS_FLAGS_THERMAL_THROTTLE: bool,
+        COMPUTER_STATUS_FLAGS_THERMAL_THROTTLE: bool = false,
         /// Indicates if main disk is full.
-        COMPUTER_STATUS_FLAGS_DISK_FULL: bool,
+        COMPUTER_STATUS_FLAGS_DISK_FULL: bool = false,
         reserved4: u1 = 0,
         reserved5: u1 = 0,
         reserved6: u1 = 0,
@@ -3325,9 +4131,9 @@ pub const enums = struct {
     /// Airspeed sensor flags
     pub const AIRSPEED_SENSOR_FLAGS = packed struct(u8) {
         /// Airspeed sensor is unhealthy
-        AIRSPEED_SENSOR_UNHEALTHY: bool,
+        AIRSPEED_SENSOR_UNHEALTHY: bool = false,
         /// True if the data from this sensor is being actively used by the flight controller for guidance, navigation or control.
-        AIRSPEED_SENSOR_USING: bool,
+        AIRSPEED_SENSOR_USING: bool = false,
         reserved2: u1 = 0,
         reserved3: u1 = 0,
         reserved4: u1 = 0,
@@ -3335,28 +4141,43 @@ pub const enums = struct {
         reserved6: u1 = 0,
         reserved7: u1 = 0,
     };
+    /// Action for the accelerometer (param5) of MAV_CMD_PREFLIGHT_CALIBRATION.
+    pub const PREFLIGHT_CALIBRATION_ACCELEROMETER = enum(u8) {
+        /// No action.
+        PREFLIGHT_CALIBRATION_ACCELEROMETER_NONE = 0,
+        /// Full 6-position accelerometer calibration.
+        PREFLIGHT_CALIBRATION_ACCELEROMETER_FULL = 1,
+        /// Board level (trim) calibration.
+        PREFLIGHT_CALIBRATION_ACCELEROMETER_TRIM = 2,
+        /// Accelerometer temperature calibration.
+        PREFLIGHT_CALIBRATION_ACCELEROMETER_TEMPERATURE = 3,
+        /// Simple accelerometer calibration.
+        PREFLIGHT_CALIBRATION_ACCELEROMETER_SIMPLE = 4,
+        /// Force-accept the existing accelerometer calibration as valid without re-running it. Useful after a parameter reload that cleared calibration validity flags.
+        PREFLIGHT_CALIBRATION_ACCELEROMETER_FORCE_SAVE = 76,
+    };
     /// Flags for gimbal device (lower level) operation.
     pub const GIMBAL_DEVICE_FLAGS = packed struct(u16) {
         /// Set to retracted safe position (no stabilization), takes precedence over all other flags.
-        GIMBAL_DEVICE_FLAGS_RETRACT: bool,
+        GIMBAL_DEVICE_FLAGS_RETRACT: bool = false,
         /// Set to neutral/default position, taking precedence over all other flags except RETRACT. Neutral is commonly forward-facing and horizontal (roll=pitch=yaw=0) but may be any orientation.
-        GIMBAL_DEVICE_FLAGS_NEUTRAL: bool,
+        GIMBAL_DEVICE_FLAGS_NEUTRAL: bool = false,
         /// Lock roll angle to absolute angle relative to horizon (not relative to vehicle). This is generally the default with a stabilizing gimbal.
-        GIMBAL_DEVICE_FLAGS_ROLL_LOCK: bool,
+        GIMBAL_DEVICE_FLAGS_ROLL_LOCK: bool = false,
         /// Lock pitch angle to absolute angle relative to horizon (not relative to vehicle). This is generally the default with a stabilizing gimbal.
-        GIMBAL_DEVICE_FLAGS_PITCH_LOCK: bool,
+        GIMBAL_DEVICE_FLAGS_PITCH_LOCK: bool = false,
         /// Lock yaw angle to absolute angle relative to North (not relative to vehicle). If this flag is set, the yaw angle and z component of angular velocity are relative to North (earth frame, x-axis pointing North), else they are relative to the vehicle heading (vehicle frame, earth frame rotated so that the x-axis is pointing forward).
-        GIMBAL_DEVICE_FLAGS_YAW_LOCK: bool,
+        GIMBAL_DEVICE_FLAGS_YAW_LOCK: bool = false,
         /// Yaw angle and z component of angular velocity are relative to the vehicle heading (vehicle frame, earth frame rotated such that the x-axis is pointing forward).
-        GIMBAL_DEVICE_FLAGS_YAW_IN_VEHICLE_FRAME: bool,
+        GIMBAL_DEVICE_FLAGS_YAW_IN_VEHICLE_FRAME: bool = false,
         /// Yaw angle and z component of angular velocity are relative to North (earth frame, x-axis is pointing North).
-        GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME: bool,
+        GIMBAL_DEVICE_FLAGS_YAW_IN_EARTH_FRAME: bool = false,
         /// Gimbal device can accept yaw angle inputs relative to North (earth frame). This flag is only for reporting (attempts to set this flag are ignored).
-        GIMBAL_DEVICE_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME: bool,
+        GIMBAL_DEVICE_FLAGS_ACCEPTS_YAW_IN_EARTH_FRAME: bool = false,
         /// The gimbal orientation is set exclusively by the RC signals feed to the gimbal's radio control inputs. MAVLink messages for setting the gimbal orientation (GIMBAL_DEVICE_SET_ATTITUDE) are ignored.
-        GIMBAL_DEVICE_FLAGS_RC_EXCLUSIVE: bool,
+        GIMBAL_DEVICE_FLAGS_RC_EXCLUSIVE: bool = false,
         /// The gimbal orientation is determined by combining/mixing the RC signals feed to the gimbal's radio control inputs and the MAVLink messages for setting the gimbal orientation (GIMBAL_DEVICE_SET_ATTITUDE). How these two controls are combined or mixed is not defined by the protocol but is up to the implementation.
-        GIMBAL_DEVICE_FLAGS_RC_MIXED: bool,
+        GIMBAL_DEVICE_FLAGS_RC_MIXED: bool = false,
         reserved10: u1 = 0,
         reserved11: u1 = 0,
         reserved12: u1 = 0,
@@ -3469,57 +4290,72 @@ pub const enums = struct {
         /// ID field references MAVLink SRC ID
         MAV_COLLISION_SRC_MAVLINK_GPS_GLOBAL_INT = 1,
     };
+    /// Yaw behaviour during orbit flight.
+    pub const ORBIT_YAW_BEHAVIOUR = enum(u8) {
+        /// Vehicle front points to the center (default).
+        ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TO_CIRCLE_CENTER = 0,
+        /// Vehicle front holds heading when message received.
+        ORBIT_YAW_BEHAVIOUR_HOLD_INITIAL_HEADING = 1,
+        /// Yaw uncontrolled.
+        ORBIT_YAW_BEHAVIOUR_UNCONTROLLED = 2,
+        /// Vehicle front follows flight path (tangential to circle).
+        ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE = 3,
+        /// Yaw controlled by RC input.
+        ORBIT_YAW_BEHAVIOUR_RC_CONTROLLED = 4,
+        /// Vehicle uses current yaw behaviour (unchanged). The vehicle-default yaw behaviour is used if this value is specified when orbit is first commanded.
+        ORBIT_YAW_BEHAVIOUR_UNCHANGED = 5,
+    };
     /// Bitmask of (optional) autopilot capabilities (64 bit). If a bit is set, the autopilot supports this capability.
     pub const MAV_PROTOCOL_CAPABILITY = packed struct(u64) {
         /// Autopilot supports the MISSION_ITEM float message type.
         /// Note that MISSION_ITEM is deprecated, and autopilots should use MISSION_ITEM_INT instead.
-        MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT: bool,
+        MAV_PROTOCOL_CAPABILITY_MISSION_FLOAT: bool = false,
         /// DEPRECATED(2022-03)
         /// Replaced by: MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST
-        MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT: bool,
+        MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT: bool = false,
         /// Autopilot supports MISSION_ITEM_INT scaled integer message type.
         /// Note that this flag must always be set if missions are supported, because missions must always use MISSION_ITEM_INT (rather than MISSION_ITEM, which is deprecated).
-        MAV_PROTOCOL_CAPABILITY_MISSION_INT: bool,
+        MAV_PROTOCOL_CAPABILITY_MISSION_INT: bool = false,
         /// Autopilot supports COMMAND_INT scaled integer message type.
-        MAV_PROTOCOL_CAPABILITY_COMMAND_INT: bool,
+        MAV_PROTOCOL_CAPABILITY_COMMAND_INT: bool = false,
         /// Parameter protocol uses byte-wise encoding of parameter values into param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
         /// Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST should be set if the parameter protocol is supported.
-        MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE: bool,
+        MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE: bool = false,
         /// Autopilot supports the File Transfer Protocol v1: https://mavlink.io/en/services/ftp.html.
-        MAV_PROTOCOL_CAPABILITY_FTP: bool,
+        MAV_PROTOCOL_CAPABILITY_FTP: bool = false,
         /// Autopilot supports the SET_ATTITUDE_TARGET message (for commanding attitude from an offboard controller).
-        MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET: bool,
+        MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET: bool = false,
         /// Autopilot supports the SET_POSITION_TARGET_LOCAL_NED message (for commanding position and velocity targets in local NED frame).
-        MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED: bool,
+        MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_LOCAL_NED: bool = false,
         /// Autopilot supports the SET_POSITION_TARGET_GLOBAL_INT message (for commanding position and velocity targets in global scaled integers).
-        MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT: bool,
+        MAV_PROTOCOL_CAPABILITY_SET_POSITION_TARGET_GLOBAL_INT: bool = false,
         /// Autopilot supports terrain protocol / data handling.
-        MAV_PROTOCOL_CAPABILITY_TERRAIN: bool,
+        MAV_PROTOCOL_CAPABILITY_TERRAIN: bool = false,
         /// Reserved for future use.
-        MAV_PROTOCOL_CAPABILITY_RESERVED3: bool,
+        MAV_PROTOCOL_CAPABILITY_RESERVED3: bool = false,
         /// Autopilot supports the MAV_CMD_DO_FLIGHTTERMINATION command (flight termination).
-        MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION: bool,
+        MAV_PROTOCOL_CAPABILITY_FLIGHT_TERMINATION: bool = false,
         /// Autopilot supports onboard compass calibration.
-        MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION: bool,
+        MAV_PROTOCOL_CAPABILITY_COMPASS_CALIBRATION: bool = false,
         /// Autopilot supports MAVLink version 2.
-        MAV_PROTOCOL_CAPABILITY_MAVLINK2: bool,
+        MAV_PROTOCOL_CAPABILITY_MAVLINK2: bool = false,
         /// Autopilot supports mission fence protocol.
-        MAV_PROTOCOL_CAPABILITY_MISSION_FENCE: bool,
+        MAV_PROTOCOL_CAPABILITY_MISSION_FENCE: bool = false,
         /// Autopilot supports mission rally point protocol.
-        MAV_PROTOCOL_CAPABILITY_MISSION_RALLY: bool,
+        MAV_PROTOCOL_CAPABILITY_MISSION_RALLY: bool = false,
         /// Reserved for future use.
-        MAV_PROTOCOL_CAPABILITY_RESERVED2: bool,
+        MAV_PROTOCOL_CAPABILITY_RESERVED2: bool = false,
         /// Parameter protocol uses C-cast of parameter values to set the param_value (float) fields: https://mavlink.io/en/services/parameter.html#parameter-encoding.
         /// Note that either this flag or MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE should be set if the parameter protocol is supported.
-        MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST: bool,
+        MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_C_CAST: bool = false,
         /// This component implements/is a gimbal manager. This means the GIMBAL_MANAGER_INFORMATION, and other messages can be requested.
-        MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER: bool,
+        MAV_PROTOCOL_CAPABILITY_COMPONENT_IMPLEMENTS_GIMBAL_MANAGER: bool = false,
         /// Component supports locking control to a particular GCS independent of its system (via MAV_CMD_REQUEST_OPERATOR_CONTROL).
         /// WIP
-        MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL: bool,
+        MAV_PROTOCOL_CAPABILITY_COMPONENT_ACCEPTS_GCS_CONTROL: bool = false,
         /// Autopilot has a connected gripper. MAVLink Grippers would set MAV_TYPE_GRIPPER instead.
         /// WIP
-        MAV_PROTOCOL_CAPABILITY_GRIPPER: bool,
+        MAV_PROTOCOL_CAPABILITY_GRIPPER: bool = false,
         reserved21: u1 = 0,
         reserved22: u1 = 0,
         reserved23: u1 = 0,
@@ -3573,22 +4409,22 @@ pub const enums = struct {
     };
     /// These flags indicate status such as data validity of each data source. Set = data valid
     pub const ADSB_FLAGS = packed struct(u16) {
-        ADSB_FLAGS_VALID_COORDS: bool,
-        ADSB_FLAGS_VALID_ALTITUDE: bool,
-        ADSB_FLAGS_VALID_HEADING: bool,
-        ADSB_FLAGS_VALID_VELOCITY: bool,
-        ADSB_FLAGS_VALID_CALLSIGN: bool,
-        ADSB_FLAGS_VALID_SQUAWK: bool,
-        ADSB_FLAGS_SIMULATED: bool,
-        ADSB_FLAGS_VERTICAL_VELOCITY_VALID: bool,
-        ADSB_FLAGS_BARO_VALID: bool,
+        ADSB_FLAGS_VALID_COORDS: bool = false,
+        ADSB_FLAGS_VALID_ALTITUDE: bool = false,
+        ADSB_FLAGS_VALID_HEADING: bool = false,
+        ADSB_FLAGS_VALID_VELOCITY: bool = false,
+        ADSB_FLAGS_VALID_CALLSIGN: bool = false,
+        ADSB_FLAGS_VALID_SQUAWK: bool = false,
+        ADSB_FLAGS_SIMULATED: bool = false,
+        ADSB_FLAGS_VERTICAL_VELOCITY_VALID: bool = false,
+        ADSB_FLAGS_BARO_VALID: bool = false,
         reserved9: u1 = 0,
         reserved10: u1 = 0,
         reserved11: u1 = 0,
         reserved12: u1 = 0,
         reserved13: u1 = 0,
         reserved14: u1 = 0,
-        ADSB_FLAGS_SOURCE_UAT: bool,
+        ADSB_FLAGS_SOURCE_UAT: bool = false,
     };
     /// Micro air vehicle / autopilot classes. This identifies the individual model.
     pub const MAV_AUTOPILOT = enum(u8) {
@@ -3648,15 +4484,41 @@ pub const enums = struct {
         reserved6: u1 = 0,
         reserved7: u1 = 0,
         /// Camera is not tracking
-        CAMERA_TRACKING_STATUS_FLAGS_IDLE: bool,
+        CAMERA_TRACKING_STATUS_FLAGS_IDLE: bool = false,
         /// Camera is tracking
-        CAMERA_TRACKING_STATUS_FLAGS_ACTIVE: bool,
+        CAMERA_TRACKING_STATUS_FLAGS_ACTIVE: bool = false,
         /// Camera tracking in error state
-        CAMERA_TRACKING_STATUS_FLAGS_ERROR: bool,
+        CAMERA_TRACKING_STATUS_FLAGS_ERROR: bool = false,
         /// Camera Moving Target Indicators (MTI) are active
-        CAMERA_TRACKING_STATUS_FLAGS_MTI: bool,
+        CAMERA_TRACKING_STATUS_FLAGS_MTI: bool = false,
         /// Camera tracking target is obscured and is being predicted
-        CAMERA_TRACKING_STATUS_FLAGS_COASTING: bool,
+        CAMERA_TRACKING_STATUS_FLAGS_COASTING: bool = false,
+    };
+    /// MAV FTP error codes (may be used in FILE_TRANSFER_PROTOCOL). See https://mavlink.io/en/services/ftp.html.
+    pub const MAV_FTP_ERR = enum(u8) {
+        /// None: No error
+        MAV_FTP_ERR_NONE = 0,
+        /// Fail: Unknown failure
+        MAV_FTP_ERR_FAIL = 1,
+        /// FailErrno: Command failed, Err number sent back in PayloadHeader.data[1].
+        /// This is a file-system error number understood by the server operating system.
+        MAV_FTP_ERR_FAILERRNO = 2,
+        /// InvalidDataSize: Payload size is invalid
+        MAV_FTP_ERR_INVALIDDATASIZE = 3,
+        /// InvalidSession: Session is not currently open
+        MAV_FTP_ERR_INVALIDSESSION = 4,
+        /// NoSessionsAvailable: All available sessions are already in use
+        MAV_FTP_ERR_NOSESSIONSAVAILABLE = 5,
+        /// EOF: Offset past end of file for ListDirectory and ReadFile commands
+        MAV_FTP_ERR_EOF = 6,
+        /// UnknownCommand: Unknown command / opcode
+        MAV_FTP_ERR_UNKNOWNCOMMAND = 7,
+        /// FileExists: File/directory already exists
+        MAV_FTP_ERR_FILEEXISTS = 8,
+        /// FileProtected: File/directory is write protected
+        MAV_FTP_ERR_FILEPROTECTED = 9,
+        /// FileNotFound: File/directory not found
+        MAV_FTP_ERR_FILENOTFOUND = 10,
     };
     /// Flags to indicate the status of camera storage.
     pub const STORAGE_STATUS = enum(u8) {
@@ -3674,13 +4536,13 @@ pub const enums = struct {
         /// If set, this mode is an advanced mode.
         /// For example a rate-controlled manual mode might be advanced, whereas a position-controlled manual mode is not.
         /// A GCS can optionally use this flag to configure the UI for its intended users.
-        MAV_MODE_PROPERTY_ADVANCED: bool,
+        MAV_MODE_PROPERTY_ADVANCED: bool = false,
         /// If set, this mode should not be added to the list of selectable modes.
         /// The mode might still be selected by the FC directly (for example as part of a failsafe).
-        MAV_MODE_PROPERTY_NOT_USER_SELECTABLE: bool,
+        MAV_MODE_PROPERTY_NOT_USER_SELECTABLE: bool = false,
         /// If set, this mode is automatically controlled (it may use but does not require a manual controller).
         /// If unset the mode is a assumed to require user input (be a manual mode).
-        MAV_MODE_PROPERTY_AUTO_MODE: bool,
+        MAV_MODE_PROPERTY_AUTO_MODE: bool = false,
         reserved3: u1 = 0,
         reserved4: u1 = 0,
         reserved5: u1 = 0,
@@ -3714,13 +4576,13 @@ pub const enums = struct {
     /// Flags to indicate usage for a particular storage (see STORAGE_INFORMATION.storage_usage and MAV_CMD_SET_STORAGE_USAGE).
     pub const STORAGE_USAGE_FLAG = packed struct(u8) {
         /// Always set to 1 (indicates STORAGE_INFORMATION.storage_usage is supported).
-        STORAGE_USAGE_FLAG_SET: bool,
+        STORAGE_USAGE_FLAG_SET: bool = false,
         /// Storage for saving photos.
-        STORAGE_USAGE_FLAG_PHOTO: bool,
+        STORAGE_USAGE_FLAG_PHOTO: bool = false,
         /// Storage for saving videos.
-        STORAGE_USAGE_FLAG_VIDEO: bool,
+        STORAGE_USAGE_FLAG_VIDEO: bool = false,
         /// Storage for saving logs.
-        STORAGE_USAGE_FLAG_LOGS: bool,
+        STORAGE_USAGE_FLAG_LOGS: bool = false,
         reserved4: u1 = 0,
         reserved5: u1 = 0,
         reserved6: u1 = 0,
@@ -3729,11 +4591,11 @@ pub const enums = struct {
     /// Illuminator module error flags (bitmap, 0 means no error)
     pub const ILLUMINATOR_ERROR_FLAGS = packed struct(u32) {
         /// Illuminator thermal throttling error.
-        ILLUMINATOR_ERROR_FLAGS_THERMAL_THROTTLING: bool,
+        ILLUMINATOR_ERROR_FLAGS_THERMAL_THROTTLING: bool = false,
         /// Illuminator over temperature shutdown error.
-        ILLUMINATOR_ERROR_FLAGS_OVER_TEMPERATURE_SHUTDOWN: bool,
+        ILLUMINATOR_ERROR_FLAGS_OVER_TEMPERATURE_SHUTDOWN: bool = false,
         /// Illuminator thermistor failure.
-        ILLUMINATOR_ERROR_FLAGS_THERMISTOR_FAILURE: bool,
+        ILLUMINATOR_ERROR_FLAGS_THERMISTOR_FAILURE: bool = false,
         reserved3: u1 = 0,
         reserved4: u1 = 0,
         reserved5: u1 = 0,
@@ -3764,6 +4626,19 @@ pub const enums = struct {
         reserved30: u1 = 0,
         reserved31: u1 = 0,
     };
+    /// Direction of VTOL transition
+    pub const VTOL_TRANSITION_HEADING = enum(u8) {
+        /// Respect the heading configuration of the vehicle.
+        VTOL_TRANSITION_HEADING_VEHICLE_DEFAULT = 0,
+        /// Use the heading pointing towards the next waypoint.
+        VTOL_TRANSITION_HEADING_NEXT_WAYPOINT = 1,
+        /// Use the heading on takeoff (while sitting on the ground).
+        VTOL_TRANSITION_HEADING_TAKEOFF = 2,
+        /// Use the specified heading in parameter 4.
+        VTOL_TRANSITION_HEADING_SPECIFIED = 3,
+        /// Use the current heading when reaching takeoff altitude (potentially facing the wind when weather-vaning is active).
+        VTOL_TRANSITION_HEADING_ANY = 4,
+    };
     /// Indicates the severity level, generally used for status messages to indicate their relative urgency. Based on RFC-5424 using expanded definitions at: http://www.kiwisyslog.com/kb/info:-syslog-message-levels/.
     pub const MAV_SEVERITY = enum(u8) {
         /// System is unusable. This is a "panic" condition.
@@ -3786,33 +4661,53 @@ pub const enums = struct {
     /// Bitmap to indicate which dimensions should be ignored by the vehicle: a value of 0b0000000000000000 or 0b0000001000000000 indicates that none of the setpoint dimensions should be ignored. If bit 9 is set the floats afx afy afz should be interpreted as force instead of acceleration.
     pub const POSITION_TARGET_TYPEMASK = packed struct(u16) {
         /// Ignore position x
-        POSITION_TARGET_TYPEMASK_X_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_X_IGNORE: bool = false,
         /// Ignore position y
-        POSITION_TARGET_TYPEMASK_Y_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_Y_IGNORE: bool = false,
         /// Ignore position z
-        POSITION_TARGET_TYPEMASK_Z_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_Z_IGNORE: bool = false,
         /// Ignore velocity x
-        POSITION_TARGET_TYPEMASK_VX_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_VX_IGNORE: bool = false,
         /// Ignore velocity y
-        POSITION_TARGET_TYPEMASK_VY_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_VY_IGNORE: bool = false,
         /// Ignore velocity z
-        POSITION_TARGET_TYPEMASK_VZ_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_VZ_IGNORE: bool = false,
         /// Ignore acceleration x
-        POSITION_TARGET_TYPEMASK_AX_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_AX_IGNORE: bool = false,
         /// Ignore acceleration y
-        POSITION_TARGET_TYPEMASK_AY_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_AY_IGNORE: bool = false,
         /// Ignore acceleration z
-        POSITION_TARGET_TYPEMASK_AZ_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_AZ_IGNORE: bool = false,
         /// Use force instead of acceleration
-        POSITION_TARGET_TYPEMASK_FORCE_SET: bool,
+        POSITION_TARGET_TYPEMASK_FORCE_SET: bool = false,
         /// Ignore yaw
-        POSITION_TARGET_TYPEMASK_YAW_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_YAW_IGNORE: bool = false,
         /// Ignore yaw rate
-        POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE: bool,
+        POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE: bool = false,
         reserved12: u1 = 0,
         reserved13: u1 = 0,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
+    };
+    /// These values define the type of firmware release.  These values indicate the first version or release of this type.  For example the first alpha release would be 64, the second would be 65.
+    pub const FIRMWARE_VERSION_TYPE = enum(u8) {
+        /// development release
+        FIRMWARE_VERSION_TYPE_DEV = 0,
+        /// alpha release
+        FIRMWARE_VERSION_TYPE_ALPHA = 64,
+        /// beta release
+        FIRMWARE_VERSION_TYPE_BETA = 128,
+        /// release candidate
+        FIRMWARE_VERSION_TYPE_RC = 192,
+        /// official stable release
+        FIRMWARE_VERSION_TYPE_OFFICIAL = 255,
+    };
+    /// Specifies the conditions under which the MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN command should be accepted.
+    pub const REBOOT_SHUTDOWN_CONDITIONS = enum(u32) {
+        /// Reboot/Shutdown only if allowed by safety checks, such as being landed.
+        REBOOT_SHUTDOWN_CONDITIONS_SAFETY_INTERLOCKED = 0,
+        /// Force reboot/shutdown of the autopilot/component regardless of system state.
+        REBOOT_SHUTDOWN_CONDITIONS_FORCE = 20190226,
     };
     /// Enumeration of estimator types
     pub const MAV_ESTIMATOR_TYPE = enum(u8) {
@@ -3847,6 +4742,14 @@ pub const enums = struct {
         VIDEO_STREAM_TYPE_MPEG_TS = 3,
         /// Stream is WHEP (WebRTC-HTTP Egress Protocol)
         VIDEO_STREAM_TYPE_WHEP = 4,
+    };
+    pub const NAV_VTOL_LAND_OPTIONS = enum(u8) {
+        /// Default autopilot landing behaviour.
+        NAV_VTOL_LAND_OPTIONS_DEFAULT = 0,
+        /// Use a fixed wing spiral desent approach before landing.
+        NAV_VTOL_LAND_OPTIONS_FW_SPIRAL_APPROACH = 1,
+        /// Use a fixed wing approach before detransitioning and landing vertically.
+        NAV_VTOL_LAND_OPTIONS_FW_APPROACH = 2,
     };
     pub const MAV_ODID_SPEED_ACC = enum(u8) {
         /// The speed accuracy is unknown.
@@ -3885,34 +4788,34 @@ pub const enums = struct {
     /// Camera capability flags (Bitmap)
     pub const CAMERA_CAP_FLAGS = packed struct(u32) {
         /// Camera is able to record video
-        CAMERA_CAP_FLAGS_CAPTURE_VIDEO: bool,
+        CAMERA_CAP_FLAGS_CAPTURE_VIDEO: bool = false,
         /// Camera is able to capture images
-        CAMERA_CAP_FLAGS_CAPTURE_IMAGE: bool,
+        CAMERA_CAP_FLAGS_CAPTURE_IMAGE: bool = false,
         /// Camera has separate Video and Image/Photo modes (MAV_CMD_SET_CAMERA_MODE)
-        CAMERA_CAP_FLAGS_HAS_MODES: bool,
+        CAMERA_CAP_FLAGS_HAS_MODES: bool = false,
         /// Camera can capture images while in video mode
-        CAMERA_CAP_FLAGS_CAN_CAPTURE_IMAGE_IN_VIDEO_MODE: bool,
+        CAMERA_CAP_FLAGS_CAN_CAPTURE_IMAGE_IN_VIDEO_MODE: bool = false,
         /// Camera can capture videos while in Photo/Image mode
-        CAMERA_CAP_FLAGS_CAN_CAPTURE_VIDEO_IN_IMAGE_MODE: bool,
+        CAMERA_CAP_FLAGS_CAN_CAPTURE_VIDEO_IN_IMAGE_MODE: bool = false,
         /// Camera has image survey mode (MAV_CMD_SET_CAMERA_MODE)
-        CAMERA_CAP_FLAGS_HAS_IMAGE_SURVEY_MODE: bool,
+        CAMERA_CAP_FLAGS_HAS_IMAGE_SURVEY_MODE: bool = false,
         /// Camera has basic zoom control (MAV_CMD_SET_CAMERA_ZOOM)
-        CAMERA_CAP_FLAGS_HAS_BASIC_ZOOM: bool,
+        CAMERA_CAP_FLAGS_HAS_BASIC_ZOOM: bool = false,
         /// Camera has basic focus control (MAV_CMD_SET_CAMERA_FOCUS)
-        CAMERA_CAP_FLAGS_HAS_BASIC_FOCUS: bool,
+        CAMERA_CAP_FLAGS_HAS_BASIC_FOCUS: bool = false,
         /// Camera has video streaming capabilities (request VIDEO_STREAM_INFORMATION with MAV_CMD_REQUEST_MESSAGE for video streaming info)
-        CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM: bool,
+        CAMERA_CAP_FLAGS_HAS_VIDEO_STREAM: bool = false,
         /// Camera supports tracking of a point on the camera view.
-        CAMERA_CAP_FLAGS_HAS_TRACKING_POINT: bool,
+        CAMERA_CAP_FLAGS_HAS_TRACKING_POINT: bool = false,
         /// Camera supports tracking of a selection rectangle on the camera view.
-        CAMERA_CAP_FLAGS_HAS_TRACKING_RECTANGLE: bool,
+        CAMERA_CAP_FLAGS_HAS_TRACKING_RECTANGLE: bool = false,
         /// Camera supports tracking geo status (CAMERA_TRACKING_GEO_STATUS).
-        CAMERA_CAP_FLAGS_HAS_TRACKING_GEO_STATUS: bool,
+        CAMERA_CAP_FLAGS_HAS_TRACKING_GEO_STATUS: bool = false,
         /// Camera supports absolute thermal range (request CAMERA_THERMAL_RANGE with MAV_CMD_REQUEST_MESSAGE).
-        CAMERA_CAP_FLAGS_HAS_THERMAL_RANGE: bool,
+        CAMERA_CAP_FLAGS_HAS_THERMAL_RANGE: bool = false,
         /// Camera supports Moving Target Indicators (MTI) on the camera view (using MAV_CMD_CAMERA_START_MTI).
         /// WIP
-        CAMERA_CAP_FLAGS_HAS_MTI: bool,
+        CAMERA_CAP_FLAGS_HAS_MTI: bool = false,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
         reserved16: u1 = 0,
@@ -3939,6 +4842,21 @@ pub const enums = struct {
         /// RTK basestation centered, north, east, down
         RTK_BASELINE_COORDINATE_SYSTEM_NED = 1,
     };
+    /// Actuator configuration, used to change a setting on an actuator. Component information metadata can be used to know which outputs support which commands.
+    pub const ACTUATOR_CONFIGURATION = enum(u8) {
+        /// Do nothing.
+        ACTUATOR_CONFIGURATION_NONE = 0,
+        /// Command the actuator to beep now.
+        ACTUATOR_CONFIGURATION_BEEP = 1,
+        /// Permanently set the actuator (ESC) to 3D mode (reversible thrust).
+        ACTUATOR_CONFIGURATION_3D_MODE_ON = 2,
+        /// Permanently set the actuator (ESC) to non 3D mode (non-reversible thrust).
+        ACTUATOR_CONFIGURATION_3D_MODE_OFF = 3,
+        /// Permanently set the actuator (ESC) to spin direction 1 (which can be clockwise or counter-clockwise).
+        ACTUATOR_CONFIGURATION_SPIN_DIRECTION1 = 4,
+        /// Permanently set the actuator (ESC) to spin direction 2 (opposite of direction 1).
+        ACTUATOR_CONFIGURATION_SPIN_DIRECTION2 = 5,
+    };
     /// Aircraft-rated danger from this threat.
     pub const MAV_COLLISION_THREAT_LEVEL = enum(u8) {
         /// Not a threat
@@ -3951,31 +4869,31 @@ pub const enums = struct {
     /// Flags in the HIL_SENSOR message indicate which fields have updated since the last message
     pub const HIL_SENSOR_UPDATED_FLAGS = packed struct(u32) {
         /// The value in the xacc field has been updated
-        HIL_SENSOR_UPDATED_XACC: bool,
+        HIL_SENSOR_UPDATED_XACC: bool = false,
         /// The value in the yacc field has been updated
-        HIL_SENSOR_UPDATED_YACC: bool,
+        HIL_SENSOR_UPDATED_YACC: bool = false,
         /// The value in the zacc field has been updated
-        HIL_SENSOR_UPDATED_ZACC: bool,
+        HIL_SENSOR_UPDATED_ZACC: bool = false,
         /// The value in the xgyro field has been updated
-        HIL_SENSOR_UPDATED_XGYRO: bool,
+        HIL_SENSOR_UPDATED_XGYRO: bool = false,
         /// The value in the ygyro field has been updated
-        HIL_SENSOR_UPDATED_YGYRO: bool,
+        HIL_SENSOR_UPDATED_YGYRO: bool = false,
         /// The value in the zgyro field has been updated
-        HIL_SENSOR_UPDATED_ZGYRO: bool,
+        HIL_SENSOR_UPDATED_ZGYRO: bool = false,
         /// The value in the xmag field has been updated
-        HIL_SENSOR_UPDATED_XMAG: bool,
+        HIL_SENSOR_UPDATED_XMAG: bool = false,
         /// The value in the ymag field has been updated
-        HIL_SENSOR_UPDATED_YMAG: bool,
+        HIL_SENSOR_UPDATED_YMAG: bool = false,
         /// The value in the zmag field has been updated
-        HIL_SENSOR_UPDATED_ZMAG: bool,
+        HIL_SENSOR_UPDATED_ZMAG: bool = false,
         /// The value in the abs_pressure field has been updated
-        HIL_SENSOR_UPDATED_ABS_PRESSURE: bool,
+        HIL_SENSOR_UPDATED_ABS_PRESSURE: bool = false,
         /// The value in the diff_pressure field has been updated
-        HIL_SENSOR_UPDATED_DIFF_PRESSURE: bool,
+        HIL_SENSOR_UPDATED_DIFF_PRESSURE: bool = false,
         /// The value in the pressure_alt field has been updated
-        HIL_SENSOR_UPDATED_PRESSURE_ALT: bool,
+        HIL_SENSOR_UPDATED_PRESSURE_ALT: bool = false,
         /// The value in the temperature field has been updated
-        HIL_SENSOR_UPDATED_TEMPERATURE: bool,
+        HIL_SENSOR_UPDATED_TEMPERATURE: bool = false,
         reserved13: u1 = 0,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
@@ -3995,7 +4913,7 @@ pub const enums = struct {
         reserved29: u1 = 0,
         reserved30: u1 = 0,
         /// Full reset of attitude/position/velocities/etc was performed in sim (Bit 31).
-        HIL_SENSOR_UPDATED_RESET: bool,
+        HIL_SENSOR_UPDATED_RESET: bool = false,
     };
     /// WiFi Mode.
     pub const WIFI_CONFIG_AP_MODE = enum(i8) {
@@ -4053,6 +4971,48 @@ pub const enums = struct {
         ADSB_EMITTER_TYPE_SERVICE_SURFACE = 18,
         ADSB_EMITTER_TYPE_POINT_OBSTACLE = 19,
     };
+    /// DEPRECATED(2020-01)
+    /// Replaced by: GIMBAL_MANAGER_FLAGS
+    pub const MAV_MOUNT_MODE = enum(u8) {
+        /// Load and keep safe position (Roll,Pitch,Yaw) from permanent memory and stop stabilization
+        MAV_MOUNT_MODE_RETRACT = 0,
+        /// Load and keep neutral position (Roll,Pitch,Yaw) from permanent memory.
+        MAV_MOUNT_MODE_NEUTRAL = 1,
+        /// Load neutral position and start MAVLink Roll,Pitch,Yaw control with stabilization
+        MAV_MOUNT_MODE_MAVLINK_TARGETING = 2,
+        /// Load neutral position and start RC Roll,Pitch,Yaw control with stabilization
+        MAV_MOUNT_MODE_RC_TARGETING = 3,
+        /// Load neutral position and start to point to Lat,Lon,Alt
+        MAV_MOUNT_MODE_GPS_POINT = 4,
+        /// Gimbal tracks system with specified system ID
+        MAV_MOUNT_MODE_SYSID_TARGET = 5,
+        /// Gimbal tracks home position
+        MAV_MOUNT_MODE_HOME_LOCATION = 6,
+        /// Gimbal tracks next waypoint location with offset
+        MAV_MOUNT_MODE_WPNEXT_OFFSET = 7,
+    };
+    /// Sequence that motors are tested when using MAV_CMD_DO_MOTOR_TEST.
+    pub const MOTOR_TEST_ORDER = enum(u8) {
+        /// Default autopilot motor test method.
+        MOTOR_TEST_ORDER_DEFAULT = 0,
+        /// Motor numbers are specified as their index in a predefined vehicle-specific sequence.
+        MOTOR_TEST_ORDER_SEQUENCE = 1,
+        /// Motor numbers are specified as the output as labeled on the board.
+        MOTOR_TEST_ORDER_BOARD = 2,
+    };
+    /// Bitmap of options for the MAV_CMD_DO_REPOSITION
+    pub const MAV_DO_REPOSITION_FLAGS = packed struct(u8) {
+        /// The aircraft should immediately transition into guided. This should not be set for follow me applications
+        MAV_DO_REPOSITION_FLAGS_CHANGE_MODE: bool = false,
+        /// Yaw relative to the vehicle current heading (if not set, relative to North).
+        MAV_DO_REPOSITION_FLAGS_RELATIVE_YAW: bool = false,
+        reserved2: u1 = 0,
+        reserved3: u1 = 0,
+        reserved4: u1 = 0,
+        reserved5: u1 = 0,
+        reserved6: u1 = 0,
+        reserved7: u1 = 0,
+    };
     pub const MAVLINK_DATA_STREAM_TYPE = enum(u8) {
         MAVLINK_DATA_STREAM_IMG_JPEG = 0,
         MAVLINK_DATA_STREAM_IMG_RAW8U = 2,
@@ -4061,39 +5021,39 @@ pub const enums = struct {
     /// Gimbal manager high level capability flags (bitmap). The flags are identical to the GIMBAL_DEVICE_CAP_FLAGS. However, the gimbal manager does not need to copy the flags from the gimbal but can also enhance the capabilities and thus add flags.
     pub const GIMBAL_MANAGER_CAP_FLAGS = packed struct(u32) {
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_RETRACT.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_RETRACT: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_RETRACT: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_NEUTRAL.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_NEUTRAL: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_NEUTRAL: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_AXIS.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_AXIS: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_AXIS: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_FOLLOW.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_FOLLOW: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_FOLLOW: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_ROLL_LOCK.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_LOCK: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_ROLL_LOCK: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_AXIS.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_AXIS: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_AXIS: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_FOLLOW.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_FOLLOW: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_FOLLOW: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_PITCH_LOCK.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_LOCK: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_PITCH_LOCK: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_AXIS.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_AXIS: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_AXIS: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_FOLLOW.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_FOLLOW: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_FOLLOW: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_YAW_LOCK.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_LOCK: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_YAW_LOCK: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_INFINITE_YAW.
-        GIMBAL_MANAGER_CAP_FLAGS_SUPPORTS_INFINITE_YAW: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_SUPPORTS_INFINITE_YAW: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME.
-        GIMBAL_MANAGER_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_SUPPORTS_YAW_IN_EARTH_FRAME: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_HAS_RC_INPUTS.
-        GIMBAL_MANAGER_CAP_FLAGS_HAS_RC_INPUTS: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_HAS_RC_INPUTS: bool = false,
         reserved14: u1 = 0,
         reserved15: u1 = 0,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL.
-        GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_LOCAL: bool = false,
         /// Based on GIMBAL_DEVICE_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL.
-        GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL: bool,
+        GIMBAL_MANAGER_CAP_FLAGS_CAN_POINT_LOCATION_GLOBAL: bool = false,
         reserved18: u1 = 0,
         reserved19: u1 = 0,
         reserved20: u1 = 0,
@@ -4116,6 +5076,21 @@ pub const enums = struct {
         MAV_ODID_DESC_TYPE_EMERGENCY = 1,
         /// Optional additional clarification when status != MAV_ODID_STATUS_EMERGENCY.
         MAV_ODID_DESC_TYPE_EXTENDED_STATUS = 2,
+    };
+    /// Axes that will be autotuned by MAV_CMD_DO_AUTOTUNE_ENABLE.
+    /// Note that at least one flag must be set in MAV_CMD_DO_AUTOTUNE_ENABLE.param2: if none are set, the flight stack will tune its default set of axes.
+    pub const AUTOTUNE_AXIS = packed struct(u8) {
+        /// Autotune roll axis.
+        AUTOTUNE_AXIS_ROLL: bool = false,
+        /// Autotune pitch axis.
+        AUTOTUNE_AXIS_PITCH: bool = false,
+        /// Autotune yaw axis.
+        AUTOTUNE_AXIS_YAW: bool = false,
+        reserved3: u1 = 0,
+        reserved4: u1 = 0,
+        reserved5: u1 = 0,
+        reserved6: u1 = 0,
+        reserved7: u1 = 0,
     };
 };
 
@@ -4192,9 +5167,9 @@ pub const messages = struct {
 
         // Extensions
         /// System ID
-        target_system: u8,
+        target_system: u8 = 0,
         /// Component ID
-        target_component: u8,
+        target_component: u8 = 0,
     };
     /// An OpenDroneID message pack is a container for multiple encoded OpenDroneID messages (i.e. not in the format given for the above message descriptions but after encoding into the compressed OpenDroneID byte format). Used e.g. when transmitting on Bluetooth 5.0 Long Range/Extended Advertising or on WiFi Neighbor Aware Networking or on WiFi Beacon.
     pub const OPEN_DRONE_ID_MESSAGE_PACK = struct {
@@ -4222,7 +5197,7 @@ pub const messages = struct {
 
         // Extensions
         /// Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number.
-        time_usec: u64,
+        time_usec: u64 = 0,
     };
     /// Superseded by ACTUATOR_OUTPUT_STATUS. The RAW values of the servo outputs (for RC input from the remote, use the RC_CHANNELS messages). The standard PPM modulation is as follows: 1000 microseconds: 0%, 2000 microseconds: 100%.
     pub const SERVO_OUTPUT_RAW = struct {
@@ -4249,21 +5224,21 @@ pub const messages = struct {
 
         // Extensions
         /// Servo output 9 value
-        servo9_raw: u16,
+        servo9_raw: u16 = 0,
         /// Servo output 10 value
-        servo10_raw: u16,
+        servo10_raw: u16 = 0,
         /// Servo output 11 value
-        servo11_raw: u16,
+        servo11_raw: u16 = 0,
         /// Servo output 12 value
-        servo12_raw: u16,
+        servo12_raw: u16 = 0,
         /// Servo output 13 value
-        servo13_raw: u16,
+        servo13_raw: u16 = 0,
         /// Servo output 14 value
-        servo14_raw: u16,
+        servo14_raw: u16 = 0,
         /// Servo output 15 value
-        servo15_raw: u16,
+        servo15_raw: u16 = 0,
         /// Servo output 16 value
-        servo16_raw: u16,
+        servo16_raw: u16 = 0,
     };
     /// This message is sent to the MAV to write a partial list. If start index == end index, only one item will be transmitted / updated. If the start index is NOT 0 and above the current list size, this request should be REJECTED!
     pub const MISSION_WRITE_PARTIAL_LIST = struct {
@@ -4278,7 +5253,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// Message that announces the sequence number of the current target mission item (that the system will fly towards/execute when the mission is running).
     /// This message should be streamed all the time (nominally at 1Hz).
@@ -4289,17 +5264,17 @@ pub const messages = struct {
 
         // Extensions
         /// Total number of mission items on vehicle (on last item, sequence == total). If the autopilot stores its home location as part of the mission this will be excluded from the total. 0: Not supported, UINT16_MAX if no mission is present on the vehicle.
-        total: u16,
+        total: u16 = 0,
         /// Mission state machine state. MISSION_STATE_UNKNOWN if state reporting not supported.
-        mission_state: enums.MISSION_STATE,
+        mission_state: enums.MISSION_STATE = @fromBackingInt(0),
         /// Vehicle is in a mode that can execute mission items or suspended. 0: Unknown, 1: In mission mode, 2: Suspended (not in mission mode).
-        mission_mode: u8,
+        mission_mode: u8 = 0,
         /// Id of current on-vehicle mission plan, or 0 if IDs are not supported or there is no mission loaded. GCS can use this to track changes to the mission plan type. The same value is returned on mission upload (in the MISSION_ACK).
-        mission_id: u32,
+        mission_id: u32 = 0,
         /// Id of current on-vehicle fence plan, or 0 if IDs are not supported or there is no fence loaded. GCS can use this to track changes to the fence plan type. The same value is returned on fence upload (in the MISSION_ACK).
-        fence_id: u32,
+        fence_id: u32 = 0,
         /// Id of current on-vehicle rally point plan, or 0 if IDs are not supported or there are no rally points loaded. GCS can use this to track changes to the rally point plan type. The same value is returned on rally point upload (in the MISSION_ACK).
-        rally_points_id: u32,
+        rally_points_id: u32 = 0,
     };
     /// An ack for a LOGGING_DATA_ACKED message
     pub const LOGGING_ACK = struct {
@@ -4347,15 +5322,15 @@ pub const messages = struct {
 
         // Extensions
         /// Remaining battery time, 0: autopilot does not provide remaining battery time estimate
-        time_remaining: i32,
+        time_remaining: i32 = 0,
         /// State for extent of discharge, provided by autopilot for warning or external reactions
-        charge_state: enums.MAV_BATTERY_CHARGE_STATE,
+        charge_state: enums.MAV_BATTERY_CHARGE_STATE = @fromBackingInt(0),
         /// Battery voltages for cells 11 to 14. Cells above the valid cell count for this battery should have a value of 0, where zero indicates not supported (note, this is different than for the voltages field and allows empty byte truncation). If the measured value is 0 then 1 should be sent instead.
-        voltages_ext: [4]u16,
+        voltages_ext: [4]u16 = @splat(0),
         /// Battery mode. Default (0) is that battery mode reporting is not supported or battery is in normal-use mode.
-        mode: enums.MAV_BATTERY_MODE,
+        mode: enums.MAV_BATTERY_MODE = @fromBackingInt(0),
         /// Fault/health indications. These should be set when charge_state is MAV_BATTERY_CHARGE_STATE_FAILED or MAV_BATTERY_CHARGE_STATE_UNHEALTHY (if not, fault reporting is not supported).
-        fault_bitmask: enums.MAV_BATTERY_FAULT,
+        fault_bitmask: enums.MAV_BATTERY_FAULT = @fromBackingInt(0),
     };
     /// Sets the home position.
     /// The home position is the default position that the system will return to and land on.
@@ -4393,7 +5368,7 @@ pub const messages = struct {
 
         // Extensions
         /// Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number.
-        time_usec: u64,
+        time_usec: u64 = 0,
     };
     /// Vehicle status report that is sent out while figure eight execution is in progress (see MAV_CMD_DO_FIGURE_EIGHT).
     /// This may typically send at low rates: of the order of 2Hz.
@@ -4507,9 +5482,9 @@ pub const messages = struct {
 
         // Extensions
         /// Gimbal id of a gimbal associated with this camera. This is the component id of the gimbal device, or 1-6 for non mavlink gimbals. Use 0 if no gimbal is associated with the camera.
-        gimbal_device_id: u8,
+        gimbal_device_id: u8 = 0,
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
     /// Emit an encrypted signature / key identifying this system. PLEASE NOTE: This protocol has been kept simple, so transmitting the key requires an encrypted channel for true safety.
     pub const AUTH_KEY = struct {
@@ -4645,7 +5620,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// Emit the value of a onboard parameter. The inclusion of param_count and param_index in the message allows the recipient to keep track of received parameters and allows him to re-request missing parameters after a loss or timeout. The parameter microservice is documented at https://mavlink.io/en/services/parameter.html
     pub const PARAM_VALUE = struct {
@@ -4695,7 +5670,7 @@ pub const messages = struct {
 
         // Extensions
         /// Id. Ids are numbered from 0 and map to IMUs numbered from 1 (e.g. IMU1 will have a message with id=0)
-        id: u8,
+        id: u8 = 0,
     };
     /// Sent from simulation to autopilot. This packet is useful for high throughput applications such as hardware in the loop simulations.
     /// DEPRECATED(2013-07)
@@ -4813,9 +5788,9 @@ pub const messages = struct {
 
         // Extensions
         /// Unique (opaque) identifier for this statustext message.  May be used to reassemble a logical long-statustext message from a sequence of chunks.  A value of zero indicates this is the only chunk in the sequence and the message can be emitted immediately.
-        id: u16,
+        id: u16 = 0,
         /// This chunk's sequence number; indexing is from zero.  Any null character in the text field is taken to mean this was the last chunk.
-        chunk_seq: u8,
+        chunk_seq: u8 = 0,
     };
     /// Current status about a high level gimbal manager. This message should be broadcast at a low regular rate (e.g. 5Hz).
     pub const GIMBAL_MANAGER_STATUS = struct {
@@ -5070,7 +6045,7 @@ pub const messages = struct {
 
         // Extensions
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
     /// The RAW IMU readings for secondary 9DOF sensor setup. This message should contain the scaled values to the described units
     pub const SCALED_IMU2 = struct {
@@ -5097,7 +6072,7 @@ pub const messages = struct {
 
         // Extensions
         /// Temperature, 0: IMU does not provide temperature values. If the IMU is at 0C it must send 1 (0.01C).
-        temperature: i16,
+        temperature: i16 = 0,
     };
     /// Wind estimate from vehicle. Note that despite the name, this message does not actually contain any covariances but instead variability and accuracy fields in terms of standard deviation (1-STD).
     pub const WIND_COV = struct {
@@ -5131,7 +6106,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// The filtered global position (e.g. fused GPS and accelerometers). The position is in GPS-frame (right-handed, Z-up). It is designed as scaled integer message since the resolution of float is not sufficient.
     pub const GLOBAL_POSITION_INT = struct {
@@ -5210,7 +6185,7 @@ pub const messages = struct {
 
         // Extensions
         /// Rotation offset by which the attitude quaternion and angular speed vector should be rotated for user display (quaternion with [w, x, y, z] order, zero-rotation is [1, 0, 0, 0], send [0, 0, 0, 0] if field not supported). This field is intended for systems in which the reference attitude may change during flight. For example, tailsitters VTOLs rotate their reference attitude by 90 degrees between hover mode and fixed wing mode, thus repr_offset_q is equal to [1, 0, 0, 0] in hover mode and equal to [0.7071, 0, 0.7071, 0] in fixed wing mode.
-        repr_offset_q: [4]f32,
+        repr_offset_q: [4]f32 = @splat(0),
     };
     /// RTK GPS data. Gives information on the relative baseline calculation the GPS is reporting
     pub const GPS_RTK = struct {
@@ -5353,15 +6328,15 @@ pub const messages = struct {
 
         // Extensions
         /// Maximum per-cell voltage when charged. 0: field not provided.
-        charging_maximum_voltage: u16,
+        charging_maximum_voltage: u16 = 0,
         /// Number of battery cells in series. 0: field not provided.
-        cells_in_series: u8,
+        cells_in_series: u8 = 0,
         /// Maximum pack discharge current. 0: field not provided.
-        discharge_maximum_current: u32,
+        discharge_maximum_current: u32 = 0,
         /// Maximum pack discharge burst current. 0: field not provided.
-        discharge_maximum_burst_current: u32,
+        discharge_maximum_burst_current: u32 = 0,
         /// Manufacture date (DD/MM/YYYY) in ASCII characters, 0 terminated. All 0: field not provided.
-        manufacture_date: [11]i8,
+        manufacture_date: [11]i8 = @splat(0),
     };
     /// The filtered local position (e.g. fused computer vision and accelerometers). Coordinate frame is right-handed, Z-axis down (aeronautical frame, NED / north-east-down convention)
     pub const LOCAL_POSITION_NED = struct {
@@ -5413,7 +6388,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// Set a parameter value (write new value to permanent storage).
     /// The receiving component should acknowledge the new parameter value by broadcasting a PARAM_VALUE message (broadcasting ensures that multiple GCS all have an up-to-date list of all parameters). If the sending GCS did not receive a PARAM_VALUE within its timeout time, it should re-send the PARAM_SET message. The parameter microservice is documented at https://mavlink.io/en/services/parameter.html.
@@ -5442,7 +6417,7 @@ pub const messages = struct {
 
         // Extensions
         /// Differential pressure temperature (0, if not available). Report values of 0 (or 1) as 1 cdegC.
-        temperature_press_diff: i16,
+        temperature_press_diff: i16 = 0,
     };
     /// Request for terrain data and terrain status. See terrain protocol docs: https://mavlink.io/en/services/terrain.html
     pub const TERRAIN_REQUEST = struct {
@@ -5567,7 +6542,7 @@ pub const messages = struct {
 
         // Extensions
         /// Bitmap of status flags.
-        status_flags: enums.COMPUTER_STATUS_FLAGS,
+        status_flags: enums.COMPUTER_STATUS_FLAGS = @fromBackingInt(0),
     };
     /// Camera tracking status, sent while in active tracking. Use MAV_CMD_SET_MESSAGE_INTERVAL to define message interval.
     pub const CAMERA_TRACKING_GEO_STATUS = struct {
@@ -5600,7 +6575,7 @@ pub const messages = struct {
 
         // Extensions
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
     /// Reports results of completed compass calibration. Sent until MAG_CAL_ACK received.
     pub const MAG_CAL_REPORT = struct {
@@ -5635,13 +6610,13 @@ pub const messages = struct {
 
         // Extensions
         /// Confidence in orientation (higher is better).
-        orientation_confidence: f32,
+        orientation_confidence: f32 = 0,
         /// orientation before calibration.
-        old_orientation: enums.MAV_SENSOR_ORIENTATION,
+        old_orientation: enums.MAV_SENSOR_ORIENTATION = @fromBackingInt(0),
         /// orientation after calibration.
-        new_orientation: enums.MAV_SENSOR_ORIENTATION,
+        new_orientation: enums.MAV_SENSOR_ORIENTATION = @fromBackingInt(0),
         /// field radius correction factor
-        scale_factor: f32,
+        scale_factor: f32 = 0,
     };
     /// Request to read the onboard parameter with the param_id string id. Onboard parameters are stored as key[const char*] -
     pub const PARAM_REQUEST_READ = struct {
@@ -5693,14 +6668,14 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
         /// Id of current on-vehicle mission, fence, or rally point plan (on download from vehicle).
         /// This field is used when downloading a plan from a vehicle to a GCS.
         /// 0 on upload to the vehicle from GCS.
         /// 0 if plan ids are not supported.
         /// The current on-vehicle plan ids are streamed in `MISSION_CURRENT`, allowing a GCS to determine if any part of the plan has changed and needs to be re-uploaded.
         /// The ids are recalculated by the vehicle when any part of the on-vehicle plan changes (when a new plan is uploaded, the vehicle returns the new id to the GCS in MISSION_ACK).
-        opaque_id: u32,
+        opaque_id: u32 = 0,
     };
     /// Battery information that is static, or requires infrequent update.
     /// This message should requested using MAV_CMD_REQUEST_MESSAGE and/or streamed at very low rate.
@@ -5800,7 +6775,7 @@ pub const messages = struct {
 
         // Extensions
         /// data
-        data: [58]f32,
+        data: [58]f32 = @splat(0),
     };
     /// The RAW IMU readings for the usual 9DOF sensor setup. This message should contain the scaled values to the described units
     pub const SCALED_IMU = struct {
@@ -5827,7 +6802,7 @@ pub const messages = struct {
 
         // Extensions
         /// Temperature, 0: IMU does not provide temperature values. If the IMU is at 0C it must send 1 (0.01C).
-        temperature: i16,
+        temperature: i16 = 0,
     };
     /// The RAW values of the RC channels received. The standard PPM modulation is as follows: 1000 microseconds: 0%, 2000 microseconds: 100%. A value of UINT16_MAX implies the channel is unused. Individual receivers/transmitters might violate this specification.
     pub const RC_CHANNELS_RAW = struct {
@@ -5946,9 +6921,9 @@ pub const messages = struct {
 
         // Extensions
         /// GPS ID (zero indexed). Used for multiple GPS inputs
-        id: u8,
+        id: u8 = 0,
         /// Yaw of vehicle relative to Earth's North, zero means not available, use 36000 for north
-        yaw: u16,
+        yaw: u16 = 0,
     };
     /// Temperature and humidity from hygrometer.
     pub const HYGROMETER_SENSOR = struct {
@@ -6070,7 +7045,7 @@ pub const messages = struct {
 
         // Extensions
         /// Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number.
-        time_usec: u64,
+        time_usec: u64 = 0,
     };
     /// Configure cellular modems.
     /// This message is re-emitted as an acknowledgement by the modem.
@@ -6156,7 +7131,7 @@ pub const messages = struct {
 
         // Extensions
         /// 3D thrust setpoint in the body NED frame, normalized to -1 .. 1
-        thrust_body: [3]f32,
+        thrust_body: [3]f32 = @splat(0),
     };
     /// Provides state for additional features
     pub const EXTENDED_SYS_STATE = struct {
@@ -6188,7 +7163,7 @@ pub const messages = struct {
 
         // Extensions
         /// Yaw in absolute frame relative to Earth's North, north is 0 (set to NaN for invalid).
-        yaw_absolute: f32,
+        yaw_absolute: f32 = 0,
     };
     /// Airspeed information from a sensor.
     pub const AIRSPEED = struct {
@@ -6270,9 +7245,9 @@ pub const messages = struct {
 
         // Extensions
         /// Row-major representation of pose 6x6 cross-covariance matrix upper right triangle (states: x_global, y_global, z_global, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.). If unknown, assign NaN value to first element in the array.
-        covariance: [21]f32,
+        covariance: [21]f32 = @splat(0),
         /// Estimate reset counter. This should be incremented when the estimate resets in any of the dimensions (position, velocity, attitude, angular speed). This is designed to be used when e.g an external SLAM system detects a loop-closure and the estimate jumps.
-        reset_counter: u8,
+        reset_counter: u8 = 0,
     };
     /// Get the current mode.
     /// This should be emitted on any mode change, and broadcast at low rate (nominally 0.5 Hz).
@@ -6374,7 +7349,7 @@ pub const messages = struct {
 
         // Extensions
         /// UID if provided by hardware (supersedes the uid field. If this is non-zero, use this field, otherwise use uid)
-        uid2: [18]u8,
+        uid2: [18]u8 = @splat(0),
     };
     /// Winch status.
     pub const WINCH_STATUS = struct {
@@ -6408,7 +7383,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// Distance sensor information for an onboard rangefinder.
     pub const DISTANCE_SENSOR = struct {
@@ -6431,13 +7406,13 @@ pub const messages = struct {
 
         // Extensions
         /// Horizontal Field of View (angle) where the distance measurement is valid and the field of view is known. Otherwise this is set to 0.
-        horizontal_fov: f32,
+        horizontal_fov: f32 = 0,
         /// Vertical Field of View (angle) where the distance measurement is valid and the field of view is known. Otherwise this is set to 0.
-        vertical_fov: f32,
+        vertical_fov: f32 = 0,
         /// Quaternion of the sensor orientation in vehicle body frame (w, x, y, z order, zero-rotation is 1, 0, 0, 0). Zero-rotation is along the vehicle body x-axis. This field is required if the orientation is set to MAV_SENSOR_ROTATION_CUSTOM. Set it to 0 if invalid."
-        quaternion: [4]f32,
+        quaternion: [4]f32 = @splat(0),
         /// Signal quality of the sensor. Specific to each sensor type, representing the relation of the signal strength with the target reflectivity, distance, size or aspect, but normalised as a percentage. 0 = unknown/unset signal quality, 1 = invalid signal, 100 = perfect signal.
-        signal_quality: u8,
+        signal_quality: u8 = 0,
     };
     /// The location of a landing target. See: https://mavlink.io/en/services/landing_target.html
     pub const LANDING_TARGET = struct {
@@ -6460,17 +7435,17 @@ pub const messages = struct {
 
         // Extensions
         /// X Position of the landing target in MAV_FRAME
-        x: f32,
+        x: f32 = 0,
         /// Y Position of the landing target in MAV_FRAME
-        y: f32,
+        y: f32 = 0,
         /// Z Position of the landing target in MAV_FRAME
-        z: f32,
+        z: f32 = 0,
         /// Quaternion of landing target orientation (w, x, y, z order, zero-rotation is 1, 0, 0, 0)
-        q: [4]f32,
+        q: [4]f32 = @splat(0),
         /// Type of landing target
-        type: enums.LANDING_TARGET_TYPE,
+        type: enums.LANDING_TARGET_TYPE = @fromBackingInt(0),
         /// Position fields (x, y, z, q, type) contain valid target position information (MAV_BOOL_TRUE). A value of MAV_BOOL_FALSE indicates the position information is invalid. Values not equal to 0 or 1 are invalid.
-        position_valid: bool,
+        position_valid: bool = 0,
     };
     /// A message containing logged data which requires a LOGGING_ACK to be sent back
     pub const LOGGING_DATA_ACKED = struct {
@@ -6554,13 +7529,13 @@ pub const messages = struct {
 
         // Extensions
         /// The progress percentage when result is MAV_RESULT_IN_PROGRESS. Values: [0-100], or UINT8_MAX if the progress is unknown.
-        progress: u8,
+        progress: u8 = 0,
         /// Additional result information. Can be set with a command-specific enum containing command-specific error reasons for why the command might be denied. If used, the associated enum must be documented in the corresponding MAV_CMD (this enum should have a 0 value to indicate "unused" or "unknown").
-        result_param2: i32,
+        result_param2: i32 = 0,
         /// System ID of the target recipient. This is the ID of the system that sent the command for which this COMMAND_ACK is an acknowledgement.
-        target_system: u8,
+        target_system: u8 = 0,
         /// Component ID of the target recipient. This is the ID of the system that sent the command for which this COMMAND_ACK is an acknowledgement.
-        target_component: u8,
+        target_component: u8 = 0,
     };
     /// Information about the status of a video stream. It may be requested using MAV_CMD_REQUEST_MESSAGE.
     pub const VIDEO_STREAM_STATUS = struct {
@@ -6583,7 +7558,7 @@ pub const messages = struct {
 
         // Extensions
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
     /// Settings of a camera. Can be requested with a MAV_CMD_REQUEST_MESSAGE command.
     pub const CAMERA_SETTINGS = struct {
@@ -6594,11 +7569,11 @@ pub const messages = struct {
 
         // Extensions
         /// Current zoom level as a percentage of the full range (0.0 to 100.0, NaN if not known)
-        zoomLevel: f32,
+        zoomLevel: f32 = 0,
         /// Current focus level as a percentage of the full range (0.0 to 100.0, NaN if not known)
-        focusLevel: f32,
+        focusLevel: f32 = 0,
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
     /// The filtered local position (e.g. fused computer vision and accelerometers). Coordinate frame is right-handed, Z-axis down (aeronautical frame, NED / north-east-down convention)
     pub const LOCAL_POSITION_NED_COV = struct {
@@ -6652,25 +7627,25 @@ pub const messages = struct {
 
         // Extensions
         /// RC channel 9 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan9_raw: u16,
+        chan9_raw: u16 = 0,
         /// RC channel 10 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan10_raw: u16,
+        chan10_raw: u16 = 0,
         /// RC channel 11 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan11_raw: u16,
+        chan11_raw: u16 = 0,
         /// RC channel 12 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan12_raw: u16,
+        chan12_raw: u16 = 0,
         /// RC channel 13 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan13_raw: u16,
+        chan13_raw: u16 = 0,
         /// RC channel 14 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan14_raw: u16,
+        chan14_raw: u16 = 0,
         /// RC channel 15 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan15_raw: u16,
+        chan15_raw: u16 = 0,
         /// RC channel 16 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan16_raw: u16,
+        chan16_raw: u16 = 0,
         /// RC channel 17 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan17_raw: u16,
+        chan17_raw: u16 = 0,
         /// RC channel 18 value. A value of 0 or UINT16_MAX means to ignore this field. A value of UINT16_MAX-1 means to release this channel back to the RC radio.
-        chan18_raw: u16,
+        chan18_raw: u16 = 0,
     };
     /// A change to the sequence number indicates that the set of AVAILABLE_MODES has changed, and that the receiver should re-request all available modes.
     /// The message is optional, and is only needed when the set of modes can change dynamically after boot.
@@ -6713,7 +7688,7 @@ pub const messages = struct {
 
         // Extensions
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
     /// Second GPS data.
     pub const GPS2_RAW = struct {
@@ -6744,17 +7719,17 @@ pub const messages = struct {
 
         // Extensions
         /// Yaw in earth frame from north. Use 0 if this GPS does not provide yaw. Use UINT16_MAX if this GPS is configured to provide yaw and is currently unable to provide it. Use 36000 for north.
-        yaw: u16,
+        yaw: u16 = 0,
         /// Altitude (above WGS84, EGM96 ellipsoid). Positive for up.
-        alt_ellipsoid: i32,
+        alt_ellipsoid: i32 = 0,
         /// Position uncertainty.
-        h_acc: u32,
+        h_acc: u32 = 0,
         /// Altitude uncertainty.
-        v_acc: u32,
+        v_acc: u32 = 0,
         /// Speed uncertainty.
-        vel_acc: u32,
+        vel_acc: u32 = 0,
         /// Heading / track uncertainty
-        hdg_acc: u32,
+        hdg_acc: u32 = 0,
     };
     /// Status of simulation environment, if used
     pub const SIM_STATE = struct {
@@ -6803,9 +7778,9 @@ pub const messages = struct {
 
         // Extensions
         /// Latitude (higher precision). If 0, recipients should use the lat field value (otherwise this field is preferred).
-        lat_int: i32,
+        lat_int: i32 = 0,
         /// Longitude (higher precision). If 0, recipients should use the lon field value (otherwise this field is preferred).
-        lon_int: i32,
+        lon_int: i32 = 0,
     };
     /// The smoothed, monotonic system state used to feed the control loops of the system.
     pub const CONTROL_SYSTEM_STATE = struct {
@@ -6859,7 +7834,7 @@ pub const messages = struct {
 
         // Extensions
         /// Row-major representation of a pose 6x6 cross-covariance matrix upper right triangle (states: x, y, z, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.). If unknown, assign NaN value to first element in the array.
-        covariance: [21]f32,
+        covariance: [21]f32 = @splat(0),
     };
     /// Message appropriate for high latency connections like Iridium (version 2)
     pub const HIGH_LATENCY2 = struct {
@@ -6952,9 +7927,9 @@ pub const messages = struct {
 
         // Extensions
         /// Row-major representation of pose 6x6 cross-covariance matrix upper right triangle (states: x, y, z, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.). If unknown, assign NaN value to first element in the array.
-        covariance: [21]f32,
+        covariance: [21]f32 = @splat(0),
         /// Estimate reset counter. This should be incremented when the estimate resets in any of the dimensions (position, velocity, attitude, angular speed). This is designed to be used when e.g an external SLAM system detects a loop-closure and the estimate jumps.
-        reset_counter: u8,
+        reset_counter: u8 = 0,
     };
     /// Global position estimate from a Vicon motion system source.
     pub const VICON_POSITION_ESTIMATE = struct {
@@ -6975,7 +7950,7 @@ pub const messages = struct {
 
         // Extensions
         /// Row-major representation of 6x6 pose cross-covariance matrix upper right triangle (states: x, y, z, roll, pitch, yaw; first six entries are the first ROW, next five entries are the second ROW, etc.). If unknown, assign NaN value to first element in the array.
-        covariance: [21]f32,
+        covariance: [21]f32 = @splat(0),
     };
     /// Message reporting the status of a gimbal device.
     /// This message should be broadcast by a gimbal device component at a low regular rate (e.g. 5 Hz).
@@ -7014,11 +7989,11 @@ pub const messages = struct {
 
         // Extensions
         /// Yaw angle relating the quaternions in earth and body frames (see message description). NaN if unknown.
-        delta_yaw: f32,
+        delta_yaw: f32 = 0,
         /// Yaw angular velocity relating the angular velocities in earth and body frames (see message description). NaN if unknown.
-        delta_yaw_velocity: f32,
+        delta_yaw_velocity: f32 = 0,
         /// This field is to be used if the gimbal manager and the gimbal device are the same component and hence have the same component ID. This field is then set a number between 1-6. If the component ID is separate, this field is not required and must be set to 0.
-        gimbal_device_id: u8,
+        gimbal_device_id: u8 = 0,
     };
     /// Control vehicle tone generation (buzzer).
     /// DEPRECATED(2019-10)
@@ -7034,7 +8009,7 @@ pub const messages = struct {
 
         // Extensions
         /// tune extension (appended to tune)
-        tune2: [200]i8,
+        tune2: [200]i8 = @splat(0),
     };
     /// The attitude in the aeronautical frame (right-handed, Z-down, Y-right, X-front, ZYX, intrinsic).
     pub const ATTITUDE = struct {
@@ -7140,9 +8115,9 @@ pub const messages = struct {
 
         // Extensions
         /// Target system id. Request: 0 (broadcast) or id of specific system. Response must contain system id of the requesting component.
-        target_system: u8,
+        target_system: u8 = 0,
         /// Target component id. Request: 0 (broadcast) or id of specific component. Response must contain component id of the requesting component.
-        target_component: u8,
+        target_component: u8 = 0,
     };
     /// ESC information for lower rate streaming. Recommended streaming rate 1Hz. See ESC_STATUS for higher-rate ESC data.
     pub const ESC_INFO = struct {
@@ -7281,15 +8256,15 @@ pub const messages = struct {
         /// Maximum hardware yaw angle (positive: to the right, negative: to the left). NAN if unknown.
         yaw_max: f32,
         /// Bitmap of gimbal capability flags.
-        cap_flags: u16,
+        cap_flags: enums.GIMBAL_DEVICE_CAP_FLAGS,
         /// Bitmap for use for gimbal-specific capability flags.
         custom_cap_flags: u16,
 
         // Extensions
         /// This field is to be used if the gimbal manager and the gimbal device are the same component and hence have the same component ID. This field is then set to a number between 1-6. If the component ID is separate, this field is not required and must be set to 0.
-        gimbal_device_id: u8,
+        gimbal_device_id: u8 = 0,
         /// Extended bitmap of gimbal capability flags (32 bit). For backwards compatibility, the lower 16 bits should also be set in cap_flags. Ground stations should prefer this field if non-zero.
-        cap_flags2: u32,
+        cap_flags2: enums.GIMBAL_DEVICE_CAP_FLAGS = @fromBackingInt(0),
     };
     /// The RAW IMU readings for a 9DOF sensor, which is identified by the id (default IMU1). This message should always contain the true raw values without any scaling to allow data capture and system debugging.
     pub const RAW_IMU = struct {
@@ -7316,9 +8291,9 @@ pub const messages = struct {
 
         // Extensions
         /// Id. Ids are numbered from 0 and map to IMUs numbered from 1 (e.g. IMU1 will have a message with id=0)
-        id: u8,
+        id: u8 = 0,
         /// Temperature, 0: IMU does not provide temperature values. If the IMU is at 0C it must send 1 (0.01C).
-        temperature: i16,
+        temperature: i16 = 0,
     };
     /// The RAW IMU readings for 3rd 9DOF sensor setup. This message should contain the scaled values to the described units
     pub const SCALED_IMU3 = struct {
@@ -7345,7 +8320,7 @@ pub const messages = struct {
 
         // Extensions
         /// Temperature, 0: IMU does not provide temperature values. If the IMU is at 0C it must send 1 (0.01C).
-        temperature: i16,
+        temperature: i16 = 0,
     };
     /// Vehicle status report that is sent out while orbit execution is in progress (see MAV_CMD_DO_ORBIT).
     pub const ORBIT_EXECUTION_STATUS = struct {
@@ -7386,7 +8361,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// Read out the safety zone the MAV currently assumes.
     pub const SAFETY_ALLOWED_AREA = struct {
@@ -7434,7 +8409,7 @@ pub const messages = struct {
 
         // Extensions
         /// Timestamp at landing (in ms since system boot). Set to 0 at boot and on arming.
-        landing_time: u32,
+        landing_time: u32 = 0,
     };
     /// The raw values of the actuator outputs (e.g. on Pixhawk, from MAIN, AUX ports). This message supersedes SERVO_OUTPUT_RAW.
     pub const ACTUATOR_OUTPUT_STATUS = struct {
@@ -7601,17 +8576,17 @@ pub const messages = struct {
 
         // Extensions
         /// Altitude (above WGS84, EGM96 ellipsoid). Positive for up.
-        alt_ellipsoid: i32,
+        alt_ellipsoid: i32 = 0,
         /// Position uncertainty.
-        h_acc: u32,
+        h_acc: u32 = 0,
         /// Altitude uncertainty.
-        v_acc: u32,
+        v_acc: u32 = 0,
         /// Speed uncertainty.
-        vel_acc: u32,
+        vel_acc: u32 = 0,
         /// Heading / track uncertainty
-        hdg_acc: u32,
+        hdg_acc: u32 = 0,
         /// Yaw in earth frame from north. Use 0 if this GPS does not provide yaw. Use UINT16_MAX if this GPS is configured to provide yaw and is currently unable to provide it. Use 36000 for north.
-        yaw: u16,
+        yaw: u16 = 0,
     };
     /// Reports the on/off state of relays, as controlled by MAV_CMD_DO_SET_RELAY.
     /// Message streaming should be requested using MAV_CMD_SET_MESSAGE_INTERVAL.
@@ -7740,9 +8715,9 @@ pub const messages = struct {
 
         // Extensions
         /// Supply voltage to EFI sparking system.  Zero in this value means "unknown", so if the supply voltage really is zero volts use 0.0001 instead.
-        ignition_voltage: f32,
+        ignition_voltage: f32 = 0,
         /// Fuel pressure. Zero in this value means "unknown", so if the fuel pressure really is zero kPa use 0.0001 instead.
-        fuel_pressure: f32,
+        fuel_pressure: f32 = 0,
     };
     /// Basic component information data. Should be requested using MAV_CMD_REQUEST_MESSAGE on startup, or when required.
     pub const COMPONENT_INFORMATION_BASIC = struct {
@@ -7821,7 +8796,7 @@ pub const messages = struct {
 
         // Extensions
         /// Sequence number. The value iterates sequentially whenever the set of AVAILABLE_MODES changes and should match value of AVAILABLE_MODES_MONITOR. Note, a GCS must ignore 0 values, and should re-start the download if the value changes part-way through fetching modes.
-        seq: u8,
+        seq: u8 = 0,
     };
     /// Tune formats supported by vehicle, i.e. via PLAY_TUNE_V2. This should be emitted as response to MAV_CMD_REQUEST_MESSAGE.
     pub const SUPPORTED_TUNES = struct {
@@ -7875,11 +8850,11 @@ pub const messages = struct {
 
         // Extensions
         /// Angular width in degrees of each array element as a float. If non-zero then this value is used instead of the uint8_t increment field. Positive is clockwise direction, negative is counter-clockwise.
-        increment_f: f32,
+        increment_f: f32 = 0,
         /// Relative angle offset of the 0-index element in the distances array. Value of 0 corresponds to forward. Positive is clockwise direction, negative is counter-clockwise.
-        angle_offset: f32,
+        angle_offset: f32 = 0,
         /// Coordinate frame of reference for the yaw rotation and offset of the sensor data. Defaults to MAV_FRAME_GLOBAL, which is north aligned. For body-mounted sensors use MAV_FRAME_BODY_FRD, which is vehicle front aligned.
-        frame: enums.MAV_FRAME,
+        frame: enums.MAV_FRAME = @fromBackingInt(0),
     };
     /// Request one or more events to be (re-)sent. If first_sequence==last_sequence, only a single event is requested. Note that first_sequence can be larger than last_sequence (because the sequence number can wrap). Each sequence will trigger an EVENT or EVENT_ERROR response.
     /// WIP
@@ -7937,11 +8912,11 @@ pub const messages = struct {
 
         // Extensions
         /// Bitmap showing which onboard controllers and sensors are present. Value of 0: not present. Value of 1: present.
-        onboard_control_sensors_present_extended: enums.MAV_SYS_STATUS_SENSOR_EXTENDED,
+        onboard_control_sensors_present_extended: enums.MAV_SYS_STATUS_SENSOR_EXTENDED = @fromBackingInt(0),
         /// Bitmap showing which onboard controllers and sensors are enabled:  Value of 0: not enabled. Value of 1: enabled.
-        onboard_control_sensors_enabled_extended: enums.MAV_SYS_STATUS_SENSOR_EXTENDED,
+        onboard_control_sensors_enabled_extended: enums.MAV_SYS_STATUS_SENSOR_EXTENDED = @fromBackingInt(0),
         /// Bitmap showing which onboard controllers and sensors have an error (or are operational). Value of 0: error. Value of 1: healthy.
-        onboard_control_sensors_health_extended: enums.MAV_SYS_STATUS_SENSOR_EXTENDED,
+        onboard_control_sensors_health_extended: enums.MAV_SYS_STATUS_SENSOR_EXTENDED = @fromBackingInt(0),
     };
     /// Manual (joystick) control message.
     /// This message represents movement axes and button using standard joystick axes nomenclature. Unused axes can be disabled and buttons states are transmitted as individual on/off bits of a bitmask. For more information see https://mavlink.io/en/services/manual_control.html
@@ -7961,25 +8936,25 @@ pub const messages = struct {
 
         // Extensions
         /// A bitfield corresponding to the joystick buttons' 16-31 current state, 1 for pressed, 0 for released. The lowest bit corresponds to Button 16.
-        buttons2: u16,
+        buttons2: u16 = 0,
         /// Set bits to 1 to indicate which of the following extension fields contain valid data: bit 0: pitch, bit 1: roll, bit 2: aux1, bit 3: aux2, bit 4: aux3, bit 5: aux4, bit 6: aux5, bit 7: aux6
-        enabled_extensions: u8,
+        enabled_extensions: u8 = 0,
         /// Pitch-only-axis, normalized to the range [-1000,1000]. Generally corresponds to pitch on vehicles with additional degrees of freedom. Valid if bit 0 of enabled_extensions field is set. Set to 0 if invalid.
-        s: i16,
+        s: i16 = 0,
         /// Roll-only-axis, normalized to the range [-1000,1000]. Generally corresponds to roll on vehicles with additional degrees of freedom. Valid if bit 1 of enabled_extensions field is set. Set to 0 if invalid.
-        t: i16,
+        t: i16 = 0,
         /// Aux continuous input field 1. Normalized in the range [-1000,1000]. Purpose defined by recipient. Valid data if bit 2 of enabled_extensions field is set. 0 if bit 2 is unset.
-        aux1: i16,
+        aux1: i16 = 0,
         /// Aux continuous input field 2. Normalized in the range [-1000,1000]. Purpose defined by recipient. Valid data if bit 3 of enabled_extensions field is set. 0 if bit 3 is unset.
-        aux2: i16,
+        aux2: i16 = 0,
         /// Aux continuous input field 3. Normalized in the range [-1000,1000]. Purpose defined by recipient. Valid data if bit 4 of enabled_extensions field is set. 0 if bit 4 is unset.
-        aux3: i16,
+        aux3: i16 = 0,
         /// Aux continuous input field 4. Normalized in the range [-1000,1000]. Purpose defined by recipient. Valid data if bit 5 of enabled_extensions field is set. 0 if bit 5 is unset.
-        aux4: i16,
+        aux4: i16 = 0,
         /// Aux continuous input field 5. Normalized in the range [-1000,1000]. Purpose defined by recipient. Valid data if bit 6 of enabled_extensions field is set. 0 if bit 6 is unset.
-        aux5: i16,
+        aux5: i16 = 0,
         /// Aux continuous input field 6. Normalized in the range [-1000,1000]. Purpose defined by recipient. Valid data if bit 7 of enabled_extensions field is set. 0 if bit 7 is unset.
-        aux6: i16,
+        aux6: i16 = 0,
     };
     /// Simulated optical flow from a flow sensor (e.g. PX4FLOW or optical mouse sensor)
     pub const HIL_OPTICAL_FLOW = struct {
@@ -8105,7 +9080,7 @@ pub const messages = struct {
 
         // Extensions
         /// Timestamp (UNIX Epoch time or time since system boot). The receiving end can infer timestamp format (since 1.1.1970 or since system boot) by checking for the magnitude of the number.
-        time_usec: u64,
+        time_usec: u64 = 0,
     };
     /// Data for filling the OpenDroneID Authentication message. The Authentication Message defines a field that can provide a means of authenticity for the identity of the UAS (Unmanned Aircraft System). The Authentication message can have two different formats. For data page 0, the fields PageCount, Length and TimeStamp are present and AuthData is only 17 bytes. For data page 1 through 15, PageCount, Length and TimeStamp are not present and the size of AuthData is 23 bytes.
     pub const OPEN_DRONE_ID_AUTHENTICATION = struct {
@@ -8163,7 +9138,7 @@ pub const messages = struct {
 
         // Extensions
         /// Sensor ID (zero indexed). Used for multiple sensor inputs
-        id: u8,
+        id: u8 = 0,
     };
     /// Describe a trajectory using an array of up-to 5 waypoints in the local frame (MAV_FRAME_LOCAL_NED).
     /// DEPRECATED(2025-03)
@@ -8247,7 +9222,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// Speed estimate from a vision source.
     pub const VISION_SPEED_ESTIMATE = struct {
@@ -8262,9 +9237,9 @@ pub const messages = struct {
 
         // Extensions
         /// Row-major representation of 3x3 linear velocity covariance matrix (states: vx, vy, vz; 1st three entries - 1st row, etc.). If unknown, assign NaN value to first element in the array.
-        covariance: [9]f32,
+        covariance: [9]f32 = @splat(0),
         /// Estimate reset counter. This should be incremented when the estimate resets in any of the dimensions (position, velocity, attitude, angular speed). This is designed to be used when e.g an external SLAM system detects a loop-closure and the estimate jumps.
-        reset_counter: u8,
+        reset_counter: u8 = 0,
     };
     /// The positioning status, as reported by GPS. This message is intended to display status information about each satellite visible to the receiver. See message GLOBAL_POSITION_INT for the global position estimate. This message can contain information for up to 20 satellites.
     pub const GPS_STATUS = struct {
@@ -8317,7 +9292,7 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
     };
     /// Optical flow from a flow sensor (e.g. optical mouse sensor)
     pub const OPTICAL_FLOW = struct {
@@ -8340,9 +9315,9 @@ pub const messages = struct {
 
         // Extensions
         /// Flow rate about X axis
-        flow_rate_x: f32,
+        flow_rate_x: f32 = 0,
         /// Flow rate about Y axis
-        flow_rate_y: f32,
+        flow_rate_y: f32 = 0,
     };
     /// Barometer readings for 2nd barometer
     pub const SCALED_PRESSURE2 = struct {
@@ -8357,7 +9332,7 @@ pub const messages = struct {
 
         // Extensions
         /// Differential pressure temperature (0, if not available). Report values of 0 (or 1) as 1 cdegC.
-        temperature_press_diff: i16,
+        temperature_press_diff: i16 = 0,
     };
     /// Terrain data sent from GCS. The lat/lon and grid_spacing must be the same as a lat/lon from a TERRAIN_REQUEST. See terrain protocol docs: https://mavlink.io/en/services/terrain.html
     pub const TERRAIN_DATA = struct {
@@ -8413,7 +9388,7 @@ pub const messages = struct {
 
         // Extensions
         /// Yaw of vehicle relative to Earth's North, zero means not available, use 36000 for north
-        yaw: u16,
+        yaw: u16 = 0,
     };
     /// The location and information of an ADSB vehicle
     pub const ADSB_VEHICLE = struct {
@@ -8461,9 +9436,9 @@ pub const messages = struct {
 
         // Extensions
         /// Total number of images captured ('forever', or until reset using MAV_CMD_STORAGE_FORMAT).
-        image_count: i32,
+        image_count: i32 = 0,
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
     /// The heartbeat message shows that a system or component is present and responding. The type and autopilot fields (along with the message component id), allow the receiving system to treat further messages from this system appropriately (e.g. by laying out the user interface based on the autopilot). This microservice is documented at https://mavlink.io/en/services/heartbeat.html
     pub const HEARTBEAT = struct {
@@ -8506,7 +9481,7 @@ pub const messages = struct {
 
         // Extensions
         /// Differential pressure temperature (0, if not available). Report values of 0 (or 1) as 1 cdegC.
-        temperature_press_diff: i16,
+        temperature_press_diff: i16 = 0,
     };
     /// Set a parameter value. In order to deal with message loss (and retransmission of PARAM_EXT_SET), when setting a parameter value and the new value is the same as the current value, you will immediately get a PARAM_ACK_ACCEPTED response. If the current state is PARAM_ACK_IN_PROGRESS, you will accordingly receive a PARAM_ACK_IN_PROGRESS in response.
     pub const PARAM_EXT_SET = struct {
@@ -8544,14 +9519,14 @@ pub const messages = struct {
 
         // Extensions
         /// Type of storage
-        type: enums.STORAGE_TYPE,
+        type: enums.STORAGE_TYPE = @fromBackingInt(0),
         /// Textual storage name to be used in UI (microSD 1, Internal Memory, etc.) This is a NULL terminated string. If it is exactly 32 characters long, add a terminating NULL. If this string is empty, the generic type is shown to the user.
-        name: [32]i8,
+        name: [32]i8 = @splat(0),
         /// Flags indicating whether this instance is preferred storage for photos, videos, etc.
         /// Note: Implementations should initially set the flags on the system-default storage id used for saving media (if possible/supported).
         /// This setting can then be overridden using MAV_CMD_SET_STORAGE_USAGE.
         /// If the media usage flags are not set, a GCS may assume storage ID 1 is the default storage for all media types.
-        storage_usage: enums.STORAGE_USAGE_FLAG,
+        storage_usage: enums.STORAGE_USAGE_FLAG = @fromBackingInt(0),
     };
     /// Acknowledgment message during waypoint handling. The type field states if this message is a positive ack (type=0) or if an error happened (type=non-zero).
     pub const MISSION_ACK = struct {
@@ -8564,14 +9539,14 @@ pub const messages = struct {
 
         // Extensions
         /// Mission type.
-        mission_type: enums.MAV_MISSION_TYPE,
+        mission_type: enums.MAV_MISSION_TYPE = @fromBackingInt(0),
         /// Id of new on-vehicle mission, fence, or rally point plan (on upload to vehicle).
         /// The id is calculated and returned by a vehicle when a new plan is uploaded by a GCS.
         /// The only requirement on the id is that it must change when there is any change to the on-vehicle plan type (there is no requirement that the id be globally unique).
         /// 0 on download from the vehicle to the GCS (on download the ID is set in MISSION_COUNT).
         /// 0 if plan ids are not supported.
         /// The current on-vehicle plan ids are streamed in `MISSION_CURRENT`, allowing a GCS to determine if any part of the plan has changed and needs to be re-uploaded.
-        opaque_id: u32,
+        opaque_id: u32 = 0,
     };
     /// Update the data in the OPEN_DRONE_ID_SYSTEM message with new location information. This can be sent to update the location information for the operator when no other information in the SYSTEM message has changed. This message allows for efficient operation on radio links which have limited uplink bandwidth while meeting requirements for update frequency of the operator location.
     pub const OPEN_DRONE_ID_SYSTEM_UPDATE = struct {
@@ -8648,7 +9623,7 @@ pub const messages = struct {
 
         // Extensions
         /// Z component of angular velocity in NED (North, East, Down). 0 if unknown. Use 0.00001 to represent a measured value of zero.
-        angular_velocity_z: f32,
+        angular_velocity_z: f32 = 0,
     };
     /// Request to control this MAV
     pub const CHANGE_OPERATOR_CONTROL = struct {
@@ -8758,11 +9733,11 @@ pub const messages = struct {
 
         // Extensions
         /// Estimate reset counter. This should be incremented when the estimate resets in any of the dimensions (position, velocity, attitude, angular speed). This is designed to be used when e.g an external SLAM system detects a loop-closure and the estimate jumps.
-        reset_counter: u8,
+        reset_counter: u8 = 0,
         /// Type of estimator that is providing the odometry.
-        estimator_type: enums.MAV_ESTIMATOR_TYPE,
+        estimator_type: enums.MAV_ESTIMATOR_TYPE = @fromBackingInt(0),
         /// Optional odometry quality metric as a percentage. -1 = odometry has failed, 0 = unknown/unset quality, 1 = worst quality, 100 = best quality
-        quality: i8,
+        quality: i8 = 0,
     };
     /// Configure WiFi AP SSID, password, and mode. This message is re-emitted as an acknowledgement by the AP. The message may also be explicitly requested using MAV_CMD_REQUEST_MESSAGE
     pub const WIFI_CONFIG_AP = struct {
@@ -8773,9 +9748,9 @@ pub const messages = struct {
 
         // Extensions
         /// WiFi Mode.
-        mode: enums.WIFI_CONFIG_AP_MODE,
+        mode: enums.WIFI_CONFIG_AP_MODE = @fromBackingInt(0),
         /// Message acceptance response (sent back to GS).
-        response: enums.WIFI_CONFIG_AP_RESPONSE,
+        response: enums.WIFI_CONFIG_AP_RESPONSE = @fromBackingInt(0),
     };
     /// A ping message either requesting or responding to a ping. This allows to measure the system latencies, including serial port, radio modem and UDP connections. The ping microservice is documented at https://mavlink.io/en/services/ping.html
     /// DEPRECATED(2011-08)
@@ -8857,27 +9832,27 @@ pub const messages = struct {
 
         // Extensions
         /// Cellular modem instance number. Indexed from 1.
-        id: u8,
+        id: u8 = 0,
         /// Download rate.
-        link_tx_rate: u32,
+        link_tx_rate: u32 = 0,
         /// Upload rate.
-        link_rx_rate: u32,
+        link_rx_rate: u32 = 0,
         /// ID of the currently connected cell tower. This must be NULL terminated if the length is less than 9 human-readable chars, and without the null termination (NULL) byte if the length is exactly 9 chars.
-        cell_tower_id: [9]i8,
+        cell_tower_id: [9]i8 = @splat(0),
         /// LTE frequency band number.
-        band_number: u8,
+        band_number: u8 = 0,
         /// LTE radio frequency.
-        band_frequency: f32,
+        band_frequency: f32 = 0,
         /// The channel number (CN). Absolute radio-frequency (ARFCN) / E-UTRA (EARFCN) / UTRA (UARFCN) / New radio (NR_CH).
-        channel_number: u32,
+        channel_number: u32 = 0,
         /// On 3G is Received Signal Code Power (RSCP). On LTE is Reference Signal Received Power (RSRP). On 5G is New Radio Reference Signal Received Power (NR_RSRP).
-        rx_level: f32,
+        rx_level: f32 = 0,
         /// Transmitter (modem) signal absolute power level.
-        tx_level: f32,
+        tx_level: f32 = 0,
         /// On 3G is Receiver Quality (RxQual). On LTE is Reference Signal Received Quality (RSRQ). On 5G is New Radio Reference Signal Received Quality (NR_RSRQ).
-        rx_quality: f32,
+        rx_quality: f32 = 0,
         /// Signal to interference plus noise ratio (SINR).
-        sinr: f32,
+        sinr: f32 = 0,
     };
     /// Data for filling the OpenDroneID Self ID message. The Self ID Message is an opportunity for the operator to (optionally) declare their identity and purpose of the flight. This message can provide additional information that could reduce the threat profile of a UA (Unmanned Aircraft) flying in a particular area or manner. This message can also be used to provide optional additional clarification in an emergency/remote ID system failure situation.
     pub const OPEN_DRONE_ID_SELF_ID = struct {
@@ -8979,7 +9954,7 @@ pub const messages = struct {
 
         // Extensions
         /// Active action to prevent fence breach
-        breach_mitigation: enums.FENCE_MITIGATE,
+        breach_mitigation: enums.FENCE_MITIGATE = @fromBackingInt(0),
     };
     /// Information about video stream. It may be requested using MAV_CMD_REQUEST_MESSAGE, where param2 indicates the video stream id: 0 for all streams, 1 for first, 2 for second, etc.
     pub const VIDEO_STREAM_INFORMATION = struct {
@@ -9010,8 +9985,8 @@ pub const messages = struct {
 
         // Extensions
         /// Encoding of stream.
-        encoding: enums.VIDEO_STREAM_ENCODING,
+        encoding: enums.VIDEO_STREAM_ENCODING = @fromBackingInt(0),
         /// Camera id of a non-MAVLink camera attached to an autopilot (1-6).  0 if the component is a MAVLink camera (with its own component id).
-        camera_device_id: u8,
+        camera_device_id: u8 = 0,
     };
 };

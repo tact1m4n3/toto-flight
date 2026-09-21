@@ -252,6 +252,7 @@ fn IO_IRQ_BANK0() linksection(".ram_text") callconv(.c) void {
     }
 }
 
+// TODO: use DMA
 pub const UART = struct {
     instance: HAL_Instance,
     state: *State,
@@ -319,7 +320,7 @@ pub const UART = struct {
                             cpu.interrupt.clear_pending(.UART1_IRQ);
                             cpu.interrupt.enable(.UART1_IRQ);
                         },
-                        _ => @compileError("invalid uart"),
+                        _ => unreachable,
                     }
                 },
             }
@@ -335,19 +336,15 @@ pub const UART = struct {
         };
     }
 
-    pub fn write_byte(uart: UART, byte: u8) !void {
-        try uart.state.tx_ring_buf.push(byte);
+    pub fn write(uart: UART, bytes: []const u8) !void {
+        try uart.state.tx_ring_buf.push_many(bytes);
         switch (uart.instance) {
             .uart => |hw_uart_instance| switch (hw_uart_instance) {
                 .num(0) => cpu.interrupt.set_pending(.UART0_IRQ),
                 .num(1) => cpu.interrupt.set_pending(.UART1_IRQ),
-                _ => @compileError("invalid uart"),
+                else => unreachable,
             },
         }
-    }
-
-    pub fn read_byte(uart: UART) ?u8 {
-        return uart.state.rx_ring_buf.pop();
     }
 
     pub fn subscribe(

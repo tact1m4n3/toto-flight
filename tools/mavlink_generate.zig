@@ -86,6 +86,23 @@ pub fn resolve_enum_types(data: *Data) !void {
             }
         }
     }
+
+    var enum_it = data.enums.valueIterator();
+    while (enum_it.next()) |@"enum"| {
+        if (@"enum".resolved_tag_type == null) {
+            var min_value: u32 = 0;
+            for (@"enum".entries) |entry| {
+                min_value = @max(min_value, entry.value);
+            }
+            const resolved: Data.Type.Primitive = switch (min_value) {
+                0...0xff => .uint8_t,
+                0x100...0xffff => .uint16_t,
+                0x10000...0xffffffff => .uint32_t,
+            };
+            std.log.warn("enum {s} has no fields referencing it, inferring tag type as {t}", .{ @"enum".name, resolved });
+            @"enum".resolved_tag_type = resolved;
+        }
+    }
 }
 
 pub fn reorder_message_fields_by_size(data: *Data) void {
@@ -151,7 +168,7 @@ pub fn gen_file(io: Io, data: *Data, output_file: []const u8) !void {
     {
         try writer.writeAll(
             \\
-            \\pub const MessageId = enum(u32) {
+            \\pub const MessageId = enum(u24) {
             \\
         );
 
@@ -263,7 +280,7 @@ pub fn gen_file(io: Io, data: *Data, output_file: []const u8) !void {
                     if (entry.wip_flag) {
                         try writer.writeAll("        /// WIP\n");
                     }
-                    try writer.print("        {f}: bool,\n", .{std.zig.fmtId(entry.name)});
+                    try writer.print("        {f}: bool = false,\n", .{std.zig.fmtId(entry.name)});
                 }
 
                 while (i < bit_size) : (i += 1) {
@@ -303,6 +320,7 @@ pub fn gen_file(io: Io, data: *Data, output_file: []const u8) !void {
             }
             try writer.print("    pub const {f} = struct {{\n", .{std.zig.fmtId(msg.name)});
 
+            var use_zero_default: bool = false;
             for (msg.fields, 0..) |field, i| {
                 if (i == msg.extension_fields_start) {
                     try writer.writeAll(
@@ -310,28 +328,40 @@ pub fn gen_file(io: Io, data: *Data, output_file: []const u8) !void {
                         \\        // Extensions
                         \\
                     );
+                    use_zero_default = true;
                 }
                 if (field.description.len > 0) {
                     try gen_docs(writer, "        ", field.description);
                 }
                 try writer.print("        {f}: ", .{std.zig.fmtId(field.name)});
-                if (field.@"enum") |enum_name| {
+
+                const maybe_enum_name = if (field.@"enum") |enum_name| blk: {
                     const enum_ptr = data.enums.getPtr(enum_name) orelse return error.InvalidEnumReference;
                     if (enum_ptr.resolved_tag_type) |_| {
-                        try writer.print("enums.{f}", .{std.zig.fmtId(enum_name)});
+                        break :blk enum_name;
                     } else {
                         std.log.warn("enum {s} has no resolved tag type... using field type instead", .{enum_name});
-                        switch (field.type) {
-                            .primitive => |p| try writer.writeAll(p.to_zig_type()),
-                            .array => return error.EnumReferenceButArrayType,
-                        }
+                        break :blk null;
                     }
+                } else null;
+
+                if (maybe_enum_name) |enum_name| {
+                    try writer.print("enums.{f}", .{std.zig.fmtId(enum_name)});
+                    // TODO: maybe assert that there actually is a zero field
+                    if (use_zero_default) try writer.writeAll(" = @fromBackingInt(0)");
                 } else {
                     switch (field.type) {
-                        .primitive => |p| try writer.writeAll(p.to_zig_type()),
-                        .array => |a| try writer.print("[{}]{s}", .{ a.count, a.primitive.to_zig_type() }),
+                        .primitive => |p| {
+                            try writer.writeAll(p.to_zig_type());
+                            if (use_zero_default) try writer.writeAll(" = 0");
+                        },
+                        .array => |a| {
+                            try writer.print("[{}]{s}", .{ a.count, a.primitive.to_zig_type() });
+                            if (use_zero_default) try writer.writeAll(" = @splat(0)");
+                        },
                     }
                 }
+
                 try writer.writeAll(",\n");
             }
 
@@ -444,9 +474,18 @@ pub const Data = struct {
             int32_t,
             uint64_t,
             int64_t,
-            uint8_t_mavlink_version,
             float,
             double,
+
+            pub fn from_str(str: []const u8) ?Primitive {
+                for (std.enums.values(Primitive)) |primitive| {
+                    // NOTE: we do this because there is a magic type
+                    // uint8_t_magic_version that needs to resolve to uint8_t
+                    if (std.mem.startsWith(u8, str, @tagName(primitive))) {
+                        return primitive;
+                    }
+                } else return null;
+            }
 
             pub fn size(self: Primitive) usize {
                 return switch (self) {
@@ -460,7 +499,6 @@ pub const Data = struct {
                     .int32_t => 4,
                     .uint64_t => 8,
                     .int64_t => 8,
-                    .uint8_t_mavlink_version => 1,
                     .float => 4,
                     .double => 8,
                 };
@@ -478,7 +516,6 @@ pub const Data = struct {
                     .int32_t => "i32",
                     .uint64_t => "u64",
                     .int64_t => "i64",
-                    .uint8_t_mavlink_version => "u8",
                     .float => "f32",
                     .double => "f64",
                 };
@@ -877,7 +914,7 @@ pub const Parser = struct {
     fn parse_type(text: []const u8) !Data.Type {
         var it = std.mem.splitScalar(u8, text, '[');
         const primitive_str = it.next() orelse return error.InvalidType;
-        const primitive = std.meta.stringToEnum(Data.Type.Primitive, primitive_str) orelse {
+        const primitive = Data.Type.Primitive.from_str(primitive_str) orelse {
             std.log.err("primitive type not recognized: {s}", .{primitive_str});
             return error.InvalidPrimitiveType;
         };
