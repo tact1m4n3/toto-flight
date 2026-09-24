@@ -218,13 +218,13 @@ pub const RxMavlink = struct {
                                 }
                             }
                         },
-                        .MAV_CMD_PREFLIGHT_CALIBRATION => if (armed) {
+                        .MAV_CMD_PREFLIGHT_CALIBRATION => if (!armed) {
                             if (command.param1 == 1.0) {
                                 log.info("imu calibration requested", .{});
                                 imu.msg_calibrate.publish({});
                             }
                         },
-                        .MAV_CMD_PREFLIGHT_STORAGE => if (armed) {
+                        .MAV_CMD_PREFLIGHT_STORAGE => if (!armed) {
                             if (command.param1 == 1.0) {
                                 log.info("saving config to flash", .{});
                                 storage.msg_save.publish({});
