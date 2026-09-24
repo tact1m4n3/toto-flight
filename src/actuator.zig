@@ -2,12 +2,10 @@ const std = @import("std");
 
 const hw = @import("hw.zig");
 const Scheduler = @import("Scheduler.zig");
-const ParamTable = Scheduler.ParamTable;
+const parameter = @import("parameter.zig");
 const Receiver = Scheduler.Receiver;
 const control = @import("control.zig");
 const math = @import("math.zig");
-
-var param_table: ParamTable(Params) = .{};
 
 pub const Actuator = struct {
     rcv_output: Receiver(control.ActuatorOutput) = undefined,
@@ -25,12 +23,23 @@ pub const Actuator = struct {
     }
 
     pub fn command_callback(_: *Actuator, output: control.ActuatorOutput) void {
-        // if we don't have params, don't output anything
-        const params: Params = param_table.get() orelse .wing;
+        const params = parameter.get(struct {
+            act: struct {
+                mtr: [hw.motors.count]struct {
+                    // TODO: throttle curve
+                    mix: math.Vec3,
+                },
+                srv: [hw.servos.count]struct {
+                    mid: u16,
+                    thr: u16,
+                    mix: math.Vec3,
+                },
+            },
+        });
 
         if (output.throttle >= 0.05) {
             var values_motor: [hw.motors.count]f32 = undefined;
-            for (&values_motor, &params.mtr) |*value_ptr, *params_motor| {
+            for (&values_motor, &params.act.mtr) |*value_ptr, *params_motor| {
                 const mix = params_motor.mix.clamp(-1.0, 1.0);
 
                 const mixed = output.throttle + math.Vec3.dot(mix, output.throw);
@@ -43,7 +52,7 @@ pub const Actuator = struct {
         }
 
         var values_servo: [hw.servos.count]u16 = undefined;
-        for (&values_servo, &params.srv) |*value_ptr, *params_servo| {
+        for (&values_servo, &params.act.srv) |*value_ptr, *params_servo| {
             const mix = params_servo.mix.clamp(-1.0, 1.0);
             const mid = std.math.clamp(params_servo.mid, 1000, 2000);
             const thr = @min(params_servo.thr, mid);
@@ -60,32 +69,4 @@ pub const Actuator = struct {
 
         hw.servos.write(&values_servo);
     }
-};
-
-pub const Params = extern struct {
-    mtr: [hw.motors.count]extern struct {
-        // TODO: throttle curve
-        mix: math.Vec3,
-    },
-    srv: [hw.servos.count]extern struct {
-        mid: u16,
-        thr: u16,
-        mix: math.Vec3,
-    },
-
-    pub const wing: Params = .{
-        .mtr = @splat(.{ .mix = .zero }),
-        .srv = .{
-            .{
-                .mid = 1700,
-                .thr = 200,
-                .mix = .{ .x = -1.0, .y = -1.0, .z = 0.0 },
-            },
-            .{
-                .mid = 1300,
-                .thr = 200,
-                .mix = .{ .x = -1.0, .y = 1.0, .z = 0.0 },
-            },
-        },
-    };
 };

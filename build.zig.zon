@@ -10,7 +10,7 @@
             .lazy = true,
         },
         .jsbsim = .{
-            .path = "vendor/jsbsim",
+            .path = "src/vendor/jsbsim",
             .lazy = true,
         },
 

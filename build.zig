@@ -19,7 +19,7 @@ pub fn build(b: *std.Build) void {
         const mavgen_exe = b.addExecutable(.{
             .name = "mavlink_generate",
             .root_module = b.createModule(.{
-                .root_source_file = b.path("tools/mavlink_generate.zig"),
+                .root_source_file = b.path("src/tools/mavlink_generate.zig"),
                 .target = target,
                 .optimize = optimize,
                 .imports = &.{

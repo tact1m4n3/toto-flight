@@ -111,7 +111,7 @@ pub fn reorder_message_fields_by_size(data: *Data) void {
         const msg = msg_entry.value_ptr;
         std.sort.insertion(Data.Message.Field, msg.fields[0..msg.extension_fields_start], {}, struct {
             fn less(_: void, a: Data.Message.Field, b: Data.Message.Field) bool {
-                return a.type.size() > b.type.size();
+                return a.type.primitive_size() > b.type.primitive_size();
             }
         }.less);
     }
@@ -522,10 +522,10 @@ pub const Data = struct {
             }
         };
 
-        pub fn size(self: Type) usize {
+        pub fn primitive_size(self: Type) usize {
             return switch (self) {
                 .primitive => |primitive| primitive.size(),
-                .array => |array| array.primitive.size() * array.count,
+                .array => |array| array.primitive.size(),
             };
         }
     };

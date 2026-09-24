@@ -6,105 +6,68 @@ const control = @import("control.zig");
 const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
-const ParamTable = Scheduler.ParamTable;
+const parameter = @import("parameter.zig");
 const drivers = @import("drivers.zig");
 
 const log = std.log.scoped(.storage);
 
 pub var msg_save: Message(void) = .{};
+pub var msg_load: Message(void) = .{};
 
-pub fn StorageGeneric(tables: anytype) type {
-    const info = @typeInfo(@TypeOf(tables)).@"struct";
+pub const Storage = struct {
+    const Driver = drivers.storage.StorageGeneric(hw.Flash, Key, .{});
 
-    return struct {
-        const Self = @This();
+    driver: Driver,
+    rcv_save: Receiver(void) = undefined,
+    param_watcher: parameter.Watcher = .{},
 
-        const Driver = drivers.storage.StorageGeneric(hw.Flash, Key, .{});
-        const Versions = GenerateVersionsStruct(tables);
+    pub fn init(storage: *Storage, scheduler: *Scheduler) void {
+        // log.info("erasing", .{});
+        // hw.flash.erase(hw.def.flash.storage_start, hw.def.flash.storage_end - hw.def.flash.storage_start) catch {};
 
-        driver: Driver,
-        rcv_save: Receiver(void) = undefined,
-        versions: Versions = undefined,
+        storage.* = .{
+            .driver = Driver.init(
+                hw.Flash.instance,
+                hw.def.flash.storage_start,
+                hw.def.flash.storage_end,
+            ) catch @panic("failed to init storage"),
+        };
 
-        pub fn init(storage: *Self, scheduler: *Scheduler) void {
-            // log.info("erasing", .{});
-            // hw.flash.erase(hw.def.flash.storage_start, hw.def.flash.storage_end - hw.def.flash.storage_start) catch {};
+        parameter.register_watcher(&storage.param_watcher);
 
-            storage.* = .{
-                .driver = Driver.init(
-                    hw.Flash.instance,
-                    hw.def.flash.storage_start,
-                    hw.def.flash.storage_end,
-                ) catch @panic("failed to init storage"),
+        storage.load();
+
+        msg_save.subscribe(&storage.rcv_save, *Storage, storage, save_callback, scheduler);
+    }
+
+    fn save_callback(storage: *Storage, _: void) void {
+        const arm_state = if (control.msg_status.get()) |status| status.armed else false;
+        if (arm_state) {
+            log.warn("skipping config save because system is armed", .{});
+            return;
+        }
+
+        const changed = storage.param_watcher.get_and_clear();
+        if (changed != .empty) {
+            log.info("saving config", .{});
+            storage.driver.store(.{ .kind = .params }, parameter.dump()) catch |err| {
+                log.warn("failed to save config: {}", .{err});
             };
-
-            storage.read_all() catch |err| {
-                log.warn("failed to publish config: {}", .{err});
-                return;
-            };
-
-            inline for (info.field_names) |field_name| {
-                _, const version = @field(tables, field_name).get_with_version();
-                @field(storage.versions, field_name) = version;
-            }
-
-            msg_save.subscribe(&storage.rcv_save, *Self, storage, save_callback, scheduler);
         }
+    }
 
-        fn save_callback(store: *Self, _: void) void {
-            const arm_state = if (control.msg_status.get()) |status| status.armed else false;
-            if (arm_state) {
-                log.warn("skipping config save because system is armed", .{});
-                return;
-            }
+    fn load(storage: *Storage) !void {
+        const table = storage.driver.fetch(.{ .kind = .params }) catch |err| {
+            log.warn("failed to save config: {}", .{err});
+        };
+        parameter.load(table);
+    }
+};
 
-            inline for (info.field_names) |field_name| {
-                const maybe_params, const version = @field(tables, field_name).get_with_version();
-                if (@field(store.versions, field_name) != version) {
-                    if (maybe_params) |params| {
-                        const key = comptime generate_key(field_name);
-                        log.info("storing params for {s}", .{key});
-                        store.driver.store(key, params) catch |err| {
-                            log.warn("failed to store {s} params: {}", .{ field_name, err });
-                        };
-                        @field(store.versions, field_name) = version;
-                    }
-                }
-            }
-        }
-
-        fn read_all(storage: *Self) !void {
-            inline for (info.field_names) |field_name| {
-                const key = comptime generate_key(field_name);
-                const Table = @TypeOf(@field(tables, field_name));
-                const ParamsType = @typeInfo(Table).pointer.child.Type;
-                if (try storage.driver.fetch(key, ParamsType)) |params| {
-                    @field(tables, field_name).update(params);
-                }
-            }
-        }
-    };
-}
-
-const key_len = 8;
-const Key = [key_len]u8;
-
-fn generate_key(comptime name: []const u8) Key {
-    comptime assert(name.len <= key_len);
-    var key: Key = @splat(0);
-    std.mem.copyForwards(u8, key[0..name.len], name);
-    return key;
-}
-
-fn GenerateVersionsStruct(messages: anytype) type {
-    const info = @typeInfo(@TypeOf(messages)).@"struct";
-    const field_types: [info.field_names.len]type = @splat(u32);
-    const field_attrs: [info.field_names.len]std.lang.Type.Struct.FieldAttributes = @splat(.{});
-    return @Struct(
-        .auto,
-        null,
-        info.field_names,
-        &field_types,
-        &field_attrs,
-    );
-}
+pub const Key = packed struct(u8) {
+    kind: enum(u2) {
+        params = 0,
+        mission = 1,
+    },
+    index: u6,
+};

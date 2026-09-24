@@ -9,11 +9,9 @@ const receiver = @import("receiver.zig");
 const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
 const Receiver = Scheduler.Receiver;
-const ParamTable = Scheduler.ParamTable;
+const parameter = @import("parameter.zig");
 
 const log = std.log.scoped(.control);
-
-pub var param_table_rate: ParamTable(RateParams) = .{};
 
 pub var msg_status: Message(Status) = .{};
 pub var msg_actuator_output: Message(ActuatorOutput) = .{};
@@ -73,7 +71,9 @@ pub const Loop = struct {
 
         const dt = duration_since_last_tick.to_secs_f32();
 
-        const params: RateParams = param_table_rate.get() orelse .default;
+        const params = parameter.get(struct {
+            rate: RateParams,
+        });
 
         const command: Command = if (control.arm_state == .armed) control.command else .disarm;
         loop: switch (command) {
@@ -86,7 +86,7 @@ pub const Loop = struct {
                 continue :loop .{
                     .manual = .{
                         .throttle = target.throttle,
-                        .throw = control.rate_controller.update(params, target.rate, data.gyro, dt),
+                        .throw = control.rate_controller.update(&params.rate, target.rate, data.gyro, dt),
                     },
                 };
             },
@@ -239,21 +239,15 @@ pub const RateCommand = struct {
     rate: math.Vec3,
 };
 
-pub const RateParams = extern struct {
+pub const RateParams = struct {
     roll: AxisGains,
     pitch: AxisGains,
     yaw: AxisGains,
 
-    pub const AxisGains = extern struct {
+    pub const AxisGains = struct {
         kff: f32,
         kp: f32,
         ki: f32,
-    };
-
-    pub const default: RateParams = .{
-        .roll = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
-        .pitch = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
-        .yaw = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
     };
 };
 
@@ -271,7 +265,7 @@ pub const RateController = struct {
 
         pub fn update(
             axis: *AxisControl,
-            gains: RateParams.AxisGains,
+            gains: *const RateParams.AxisGains,
             target_rate: f32,
             current_rate: f32,
             dt: f32,
@@ -297,15 +291,15 @@ pub const RateController = struct {
 
     pub fn update(
         controller: *RateController,
-        params: RateParams,
+        params: *const RateParams,
         target_rate: math.Vec3,
         current_rate: math.Vec3,
         dt: f32,
     ) math.Vec3 {
         return .{
-            .x = controller.roll.update(params.roll, target_rate.x, current_rate.x, dt),
-            .y = controller.pitch.update(params.pitch, target_rate.y, current_rate.y, dt),
-            .z = controller.yaw.update(params.yaw, target_rate.z, current_rate.z, dt),
+            .x = controller.roll.update(&params.roll, target_rate.x, current_rate.x, dt),
+            .y = controller.pitch.update(&params.pitch, target_rate.y, current_rate.y, dt),
+            .z = controller.yaw.update(&params.yaw, target_rate.z, current_rate.z, dt),
         };
     }
 };

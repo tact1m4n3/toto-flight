@@ -30,6 +30,8 @@ pub var scheduler_high: Scheduler = .init(hw.chip.scheduler_get_pend_fn(.high));
 pub var scheduler_mid: Scheduler = .init(hw.chip.scheduler_get_pend_fn(.mid));
 pub var scheduler_low: Scheduler = .init(hw.chip.scheduler_get_pend_fn(.low));
 
+// var task_storage: storage.Storage = undefined;
+
 var task_imu: imu.Imu = undefined;
 var task_control: control.Loop = undefined;
 var task_actuator: actuator.Actuator = undefined;
@@ -42,11 +44,6 @@ var task_status_led: status_led.StatusLed = undefined;
 
 var task_cpu_usage: hw.CPU_Usage = undefined;
 
-var task_storage: storage.StorageGeneric(.{
-    .imu = &imu.param_table,
-    .rate = &control.param_table_rate,
-}) = undefined;
-
 pub fn main() void {
     {
         const cs = hw.enter_critical_section();
@@ -55,6 +52,8 @@ pub fn main() void {
         hw.chip.init();
 
         log.info("initializing tasks", .{});
+
+        // task_storage.init(&scheduler_low);
 
         task_cpu_usage.init(&scheduler_realtime);
         task_imu.init(&scheduler_realtime);
@@ -68,8 +67,6 @@ pub fn main() void {
         if (hw.def.battery) |_| {
             task_battery.init(&scheduler_mid);
         }
-
-        task_storage.init(&scheduler_low);
 
         if (hw.def.led_strip) |_| {
             task_status_led.init(&scheduler_low);

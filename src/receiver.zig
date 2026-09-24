@@ -3,8 +3,10 @@ const assert = std.debug.assert;
 const testing = std.testing;
 
 const time = @import("time.zig");
+const actuator = @import("actuator.zig");
 const storage = @import("storage.zig");
 const control = @import("control.zig");
+const parameter = @import("parameter.zig");
 const hw = @import("hw.zig");
 const imu = @import("imu.zig");
 const math = @import("math.zig");
@@ -70,8 +72,6 @@ pub const Rx_CRSF = struct {
 };
 
 pub const RxMavlink = struct {
-    // TODO: PARAM_REQUEST_LIST
-    //
     // IDK if we need:
     // TODO: COMPONENT_INFORMATION
     // TODO: GIMBAL_MANAGER_INFORMATION
@@ -81,7 +81,12 @@ pub const RxMavlink = struct {
     const uart = hw.UART.get(.receiver);
     const send_tick_rate: hw.TickRate = .@"100Hz";
 
+    const min_txbuf = 30;
+    const max_bitrate = 100; // bytes per second
+    const bitrate_inc_per_tick = @max(max_bitrate * send_tick_rate.get_period().to_ms() / 1_000, 1);
+
     const sysid = 1;
+    const compid = @backingInt(mavlink.enums.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1);
     const capabilities: mavlink.enums.MAV_PROTOCOL_CAPABILITY = .{
         .MAV_PROTOCOL_CAPABILITY_MAVLINK2 = true,
         .MAV_PROTOCOL_CAPABILITY_PARAM_ENCODE_BYTEWISE = true,
@@ -98,8 +103,12 @@ pub const RxMavlink = struct {
     };
 
     rcv_tick: Receiver(void) = undefined,
+    param_watcher: parameter.Watcher = .{},
 
     parser: mavlink.Parser = .{},
+
+    txbuf: u8 = 100,
+    rate_limiter: u32 = max_bitrate,
 
     tick_count: u32 = 0,
     gcs_connected: bool = false,
@@ -127,15 +136,41 @@ pub const RxMavlink = struct {
         };
     };
 
+    const ParamId = struct {
+        buf: [16]u8,
+
+        pub fn from_raw(raw: [16]i8) ParamId {
+            return .{ .buf = @bitCast(raw) };
+        }
+
+        pub fn to_raw(id: ParamId) [16]i8 {
+            return @bitCast(id.buf);
+        }
+
+        pub fn from_slice(id: []const u8) ?ParamId {
+            if (id.len > 16) return null;
+            var buf: [16]u8 = @splat(0);
+            std.mem.copyForwards(u8, buf[0..id.len], id);
+            return .{ .buf = buf };
+        }
+
+        pub fn as_slice(id: *const ParamId) []const u8 {
+            const end = std.mem.findScalar(u8, &id.buf, 0) orelse id.buf.len;
+            return id.buf[0..end];
+        }
+    };
+
     pub fn init(rx: *RxMavlink, scheduler: *Scheduler) void {
         rx.* = .{};
 
         uart.subscribe(*RxMavlink, rx, receive_callback, scheduler);
         hw.ticker(send_tick_rate).subscribe(&rx.rcv_tick, *RxMavlink, rx, send_callback, scheduler);
+
+        parameter.register_watcher(&rx.param_watcher);
     }
 
     fn receive_callback(rx: *RxMavlink, byte: u8) void {
-        const maybe_packet = rx.parser.push_byte(byte) catch |err| {
+        const maybe_message = rx.parser.push_byte(byte) catch |err| {
             switch (err) {
                 error.UnknownMessageId, error.UnimplementedMessage => {
                     log.warn("unknown message id: 0x{x:0>6}", .{rx.parser.packet.get_msgid()});
@@ -145,37 +180,111 @@ pub const RxMavlink = struct {
             return;
         };
 
-        if (maybe_packet) |packet| {
+        if (maybe_message) |packet| {
+            // if (rx.parser.packet.sysid != sysid or rx.parser.packet.compid != compid) {
+            //     return;
+            // }
+
+            const armed = if (control.msg_status.get()) |status|
+                status.armed
+            else
+                false;
+
             switch (packet) {
+                .RADIO_STATUS => |status| {
+                    rx.txbuf = status.txbuf;
+                },
                 .HEARTBEAT => |heartbeat| {
                     if (heartbeat.type == .MAV_TYPE_GCS and !rx.gcs_connected) {
                         log.info("gcs connected", .{});
                         rx.gcs_connected = true;
                     }
                 },
-                .COMMAND_LONG => |command| switch (command.command) {
-                    .MAV_CMD_REQUEST_MESSAGE => {
-                        if (std.enums.fromInt(mavlink.MessageId, std.math.lossyCast(u24, command.param1))) |id| {
-                            switch (id) {
-                                .AUTOPILOT_VERSION => rx.one_shot.autopilot_version = true,
-                                .AVAILABLE_MODES => if (rx.send_available_modes.state == .idle) {
-                                    const index = std.math.lossyCast(u8, command.param2);
-                                    rx.send_available_modes = .{
-                                        .specific = index != 0,
-                                        .current_index = if (index != 0) index else 1,
-                                        .state = .ack,
-                                    };
-                                },
-                                else => log.warn("unknown message request: {t}", .{id}),
+                .COMMAND_LONG => |command| {
+                    switch (command.command) {
+                        .MAV_CMD_REQUEST_MESSAGE => {
+                            if (std.enums.fromInt(mavlink.MessageId, std.math.lossyCast(u24, command.param1))) |id| {
+                                switch (id) {
+                                    .AUTOPILOT_VERSION => rx.one_shot.autopilot_version = true,
+                                    .AVAILABLE_MODES => if (rx.send_available_modes.state == .idle) {
+                                        const index = std.math.lossyCast(u8, command.param2);
+                                        rx.send_available_modes = .{
+                                            .specific = index != 0,
+                                            .current_index = if (index != 0) index else 1,
+                                            .state = .ack,
+                                        };
+                                    },
+                                    else => log.warn("unknown message request: {t}", .{id}),
+                                }
                             }
-                        }
-                    },
-                    else => std.log.warn("unknown command: {t}", .{command.command}),
+                        },
+                        .MAV_CMD_PREFLIGHT_CALIBRATION => if (armed) {
+                            if (command.param1 == 1.0) {
+                                log.info("imu calibration requested", .{});
+                                imu.msg_calibrate.publish({});
+                            }
+                        },
+                        .MAV_CMD_PREFLIGHT_STORAGE => if (armed) {
+                            if (command.param1 == 1.0) {
+                                log.info("saving config to flash", .{});
+                                storage.msg_save.publish({});
+                            } else if (command.param1 == 0.0) {
+                                // config load from flash: NOP
+                            } else if (command.param1 == 2.0) {
+                                log.info("reset config to default", .{});
+                                parameter.reset_to_default();
+                            }
+                        },
+                        else => std.log.warn("unknown command: {t}", .{command.command}),
+                    }
                 },
                 .MISSION_REQUEST_LIST => {
                     // TODO: state machine for mission download
                     rx.one_shot.mission_count = true;
+                    log.info("mission request list received, sending mission count", .{});
                 },
+
+                .PARAM_REQUEST_LIST => {
+                    // we set all bits so that the param sender thinks all
+                    // params have changed and will send them all
+                    rx.param_watcher.set(.full);
+                    log.info("param request list received, sending all params", .{});
+                },
+                .PARAM_REQUEST_READ => |request| {
+                    const maybe_index = std.math.cast(u16, request.param_index) orelse blk: {
+                        const param_id: [16]u8 = @bitCast(request.param_id);
+                        break :blk parameter.id_to_index.get(&param_id);
+                    };
+
+                    log.info("param request read received, index: {d}", .{maybe_index orelse 0});
+                    if (maybe_index) |index| {
+                        // we set a specific bit so that the param sender thinks
+                        // this param changed and it will send it
+                        rx.param_watcher.set_one(index);
+                    } else {
+                        log.warn("read param not found", .{});
+                    }
+                },
+                .PARAM_SET => |set| {
+                    const param_id: ParamId = .from_raw(set.param_id);
+                    const value: parameter.AnyValue = switch (set.param_type) {
+                        .MAV_PARAM_TYPE_INT8 => .{ .i8 = std.math.lossyCast(i8, set.param_value) },
+                        .MAV_PARAM_TYPE_INT16 => .{ .i16 = std.math.lossyCast(i16, set.param_value) },
+                        .MAV_PARAM_TYPE_INT32 => .{ .i32 = std.math.lossyCast(i32, set.param_value) },
+                        .MAV_PARAM_TYPE_INT64 => .{ .i64 = std.math.lossyCast(i64, set.param_value) },
+                        .MAV_PARAM_TYPE_UINT8 => .{ .u8 = std.math.lossyCast(u8, set.param_value) },
+                        .MAV_PARAM_TYPE_UINT16 => .{ .u16 = std.math.lossyCast(u16, set.param_value) },
+                        .MAV_PARAM_TYPE_UINT32 => .{ .u32 = std.math.lossyCast(u32, set.param_value) },
+                        .MAV_PARAM_TYPE_UINT64 => .{ .u64 = std.math.lossyCast(u64, set.param_value) },
+                        .MAV_PARAM_TYPE_REAL32 => .{ .f32 = set.param_value },
+                        .MAV_PARAM_TYPE_REAL64 => .{ .f64 = set.param_value },
+                    };
+                    log.info("param set received, id: {s}, value: {any}", .{ param_id.as_slice(), value });
+                    parameter.modify_dyn_with_id(param_id.as_slice(), value) catch |err| {
+                        log.warn("failed to set param {s}: {}", .{ param_id.as_slice(), err });
+                    };
+                },
+
                 else => {},
             }
         }
@@ -184,10 +293,13 @@ pub const RxMavlink = struct {
     fn send_callback(rx: *RxMavlink, _: void) void {
         if (!rx.gcs_connected) return;
 
+        rx.rate_limiter += bitrate_inc_per_tick;
+        rx.rate_limiter = @min(rx.rate_limiter, max_bitrate);
+
         defer rx.tick_count +%= 1;
 
         if (rx.tick_count % 100 == 0) {
-            send_message(&.{ .HEARTBEAT = .{
+            rx.send_message(&.{ .HEARTBEAT = .{
                 .custom_mode = 0,
                 .type = .MAV_TYPE_FIXED_WING,
                 .autopilot = .MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY,
@@ -201,7 +313,7 @@ pub const RxMavlink = struct {
         }
 
         if (rx.one_shot.autopilot_version) {
-            send_message(&.{
+            rx.send_message(&.{
                 .AUTOPILOT_VERSION = .{
                     .capabilities = capabilities,
 
@@ -222,10 +334,10 @@ pub const RxMavlink = struct {
         }
 
         if (rx.one_shot.mission_count) {
-            send_message(&.{ .MISSION_COUNT = .{
+            rx.send_message(&.{ .MISSION_COUNT = .{
                 .count = 0,
                 .target_system = sysid,
-                .target_component = @backingInt(mavlink.enums.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1),
+                .target_component = compid,
             } }, .{}) catch return;
             rx.one_shot.mission_count = false;
         }
@@ -234,7 +346,7 @@ pub const RxMavlink = struct {
             .idle => {},
             .ack => {
                 if (rx.send_available_modes.current_index == 0 or rx.send_available_modes.current_index > flight_modes.len) {
-                    send_message(&.{ .COMMAND_ACK = .{
+                    rx.send_message(&.{ .COMMAND_ACK = .{
                         .command = .MAV_CMD_REQUEST_MESSAGE,
                         .result = .MAV_RESULT_DENIED,
                     } }, .{}) catch return;
@@ -242,7 +354,7 @@ pub const RxMavlink = struct {
                     rx.send_available_modes.state = .idle;
                     break :send_available_modes;
                 } else {
-                    send_message(&.{ .COMMAND_ACK = .{
+                    rx.send_message(&.{ .COMMAND_ACK = .{
                         .command = .MAV_CMD_REQUEST_MESSAGE,
                         .result = .MAV_RESULT_ACCEPTED,
                     } }, .{}) catch return;
@@ -259,7 +371,7 @@ pub const RxMavlink = struct {
                     const src_name = mode.name orelse "";
                     std.mem.copyForwards(u8, name[0..src_name.len], src_name);
                 }
-                send_message(&.{
+                rx.send_message(&.{
                     .AVAILABLE_MODES = .{
                         .mode_name = @bitCast(name),
                         .custom_mode = 0,
@@ -280,11 +392,52 @@ pub const RxMavlink = struct {
                 }
             },
         }
+
+        // whatever we don't send right away we mark as changed again
+        var changed_params = rx.param_watcher.get_and_clear();
+        defer rx.param_watcher.set(changed_params);
+
+        var it = changed_params.iterator(.{});
+        while (it.next()) |index| {
+            const value = parameter.get_dyn(index).?; // this can't fail since the bitset so many parameters
+            const id_str = parameter.ids[index];
+            const id = ParamId.from_slice(id_str) orelse {
+                log.warn("can't send param {s}: id too big", .{id_str});
+                continue;
+            };
+            rx.send_message(&.{
+                .PARAM_VALUE = .{
+                    .param_id = id.to_raw(),
+                    .param_value = switch (value) {
+                        inline else => |val| std.math.lossyCast(f32, val),
+                    },
+                    .param_count = std.math.cast(u16, parameter.count) orelse break,
+                    .param_index = std.math.cast(u16, index) orelse break,
+                    .param_type = switch (value) {
+                        .i8 => .MAV_PARAM_TYPE_INT8,
+                        .i16 => .MAV_PARAM_TYPE_INT16,
+                        .i32 => .MAV_PARAM_TYPE_INT32,
+                        .i64 => .MAV_PARAM_TYPE_INT64,
+                        .u8 => .MAV_PARAM_TYPE_UINT8,
+                        .u16 => .MAV_PARAM_TYPE_UINT16,
+                        .u32 => .MAV_PARAM_TYPE_UINT32,
+                        .u64 => .MAV_PARAM_TYPE_UINT64,
+                        .f32 => .MAV_PARAM_TYPE_REAL32,
+                        .f64 => .MAV_PARAM_TYPE_REAL64,
+                    },
+                },
+            }, .{}) catch return;
+            changed_params.unset(index);
+        }
     }
 
-    fn send_message(message: *const mavlink.OutgoingMessage, options: struct {
+    fn send_message(rx: *RxMavlink, message: *const mavlink.OutgoingMessage, options: struct {
         seq: u8 = 0,
     }) !void {
+        if (rx.txbuf < min_txbuf) {
+            return error.LinkSaturated;
+        }
+
         var buf: [mavlink.MAX_PACKET_LEN]u8 = undefined;
         const len = mavlink.serialize(
             &buf,
@@ -292,9 +445,12 @@ pub const RxMavlink = struct {
             .{
                 .seq = options.seq,
                 .sysid = sysid,
-                .compid = @backingInt(mavlink.enums.MAV_COMPONENT.MAV_COMP_ID_AUTOPILOT1),
+                .compid = compid,
             },
         ) catch unreachable;
+
+        rx.rate_limiter = std.math.sub(u32, rx.rate_limiter, len) catch return error.LinkSaturated;
+
         try uart.write(buf[0..len]);
     }
 };

@@ -25,6 +25,10 @@ pub const IncomingMessage = union(enum) {
     COMMAND_LONG: messages.COMMAND_LONG,
 
     MISSION_REQUEST_LIST: messages.MISSION_REQUEST_LIST,
+
+    PARAM_REQUEST_LIST: messages.PARAM_REQUEST_LIST,
+    PARAM_REQUEST_READ: messages.PARAM_REQUEST_READ,
+    PARAM_SET: messages.PARAM_SET,
 };
 
 pub const OutgoingMessage = union(enum) {
@@ -36,6 +40,8 @@ pub const OutgoingMessage = union(enum) {
     AVAILABLE_MODES: messages.AVAILABLE_MODES,
 
     MISSION_COUNT: messages.MISSION_COUNT,
+
+    PARAM_VALUE: messages.PARAM_VALUE,
 };
 
 pub const Parser = struct {

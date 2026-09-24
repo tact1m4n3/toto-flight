@@ -206,38 +206,6 @@ pub fn Receiver(T: type) type {
     };
 }
 
-pub fn ParamTable(T: type) type {
-    return struct {
-        const Self = @This();
-
-        pub const Type = T;
-
-        /// Must only be accessed through a critical section.
-        value: ?T = null,
-        /// Must only be accessed through a critical section.
-        version: u32 = 0,
-
-        pub fn get(table: *Self) ?T {
-            const cs = hw.enter_critical_section();
-            defer cs.leave();
-            return table.value;
-        }
-
-        pub fn get_with_version(table: *Self) struct { ?T, u32 } {
-            const cs = hw.enter_critical_section();
-            defer cs.leave();
-            return .{ table.value, table.version };
-        }
-
-        pub fn update(table: *Self, value: T) void {
-            const cs = hw.enter_critical_section();
-            defer cs.leave();
-            table.value = value;
-            table.version += 1;
-        }
-    };
-}
-
 const TransferStack = struct {
     first: std.atomic.Value(?*Node) = .init(null),
 
