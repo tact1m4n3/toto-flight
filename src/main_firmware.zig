@@ -30,7 +30,7 @@ pub var scheduler_high: Scheduler = .init(hw.chip.scheduler_get_pend_fn(.high));
 pub var scheduler_mid: Scheduler = .init(hw.chip.scheduler_get_pend_fn(.mid));
 pub var scheduler_low: Scheduler = .init(hw.chip.scheduler_get_pend_fn(.low));
 
-// var task_storage: storage.Storage = undefined;
+var task_storage: storage.Storage = undefined;
 
 var task_imu: imu.Imu = undefined;
 var task_control: control.Loop = undefined;
@@ -53,7 +53,7 @@ pub fn main() void {
 
         log.info("initializing tasks", .{});
 
-        // task_storage.init(&scheduler_low);
+        task_storage.init(&scheduler_low);
 
         task_cpu_usage.init(&scheduler_realtime);
         task_imu.init(&scheduler_realtime);

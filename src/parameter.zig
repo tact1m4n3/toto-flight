@@ -26,65 +26,17 @@ pub const Table = extern struct {
     cor: extern struct {
         fwd_angl: f32,
     },
-    imu: extern struct {
-        gyr_bias: math.Vec3,
-        acc_bias: math.Vec3,
-        acc_scale: math.Vec3,
-        _to_body: math.Mat3,
-    },
-    rate: extern struct {
-        roll: AxisGains,
-        pitch: AxisGains,
-        yaw: AxisGains,
-
-        const AxisGains = extern struct {
-            kff: f32,
-            kp: f32,
-            ki: f32,
-        };
-    },
-    act: extern struct {
-        mtr: [hw.motors.count]extern struct {
-            // TODO: throttle curve
-            mix: math.Vec3,
-        },
-        srv: [hw.servos.count]extern struct {
-            mid: u16,
-            thr: u16,
-            mix: math.Vec3,
-        },
-    },
+    imu: @import("imu.zig").Params,
+    rate: @import("control.zig").RateParams,
+    act: @import("actuator.zig").Params,
 
     pub const default: Table = .{
         .cor = .{
             .fwd_angl = 0.0,
         },
-        .imu = .{
-            .gyr_bias = .zero,
-            .acc_bias = .zero,
-            .acc_scale = .one,
-            ._to_body = .identity,
-        },
-        .rate = .{
-            .roll = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
-            .pitch = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
-            .yaw = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
-        },
-        .act = .{
-            .mtr = @splat(.{ .mix = .zero }),
-            .srv = .{
-                .{
-                    .mid = 1700,
-                    .thr = 200,
-                    .mix = .{ .x = -1.0, .y = -1.0, .z = 0.0 },
-                },
-                .{
-                    .mid = 1300,
-                    .thr = 200,
-                    .mix = .{ .x = -1.0, .y = 1.0, .z = 0.0 },
-                },
-            },
-        },
+        .imu = .default,
+        .rate = .default,
+        .act = .default,
     };
 };
 
@@ -407,6 +359,7 @@ test "comptime helpers" {
     const Params = struct {
         a: u32,
         b: f32,
+        _hidden: u32 = 0,
         c: [2]struct {
             d: u8,
             e: u16,

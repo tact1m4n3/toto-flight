@@ -13,8 +13,23 @@ const drivers = @import("drivers.zig");
 
 const log = std.log.scoped(.imu);
 
+pub var arm_block_calibrating: control.ArmBlock = .init;
 pub var msg_data: Message(Data) = .{};
 pub var msg_calibrate: Message(void) = .{};
+
+pub const Params = extern struct {
+    gyr_bias: math.Vec3,
+    acc_bias: math.Vec3,
+    acc_scale: math.Vec3,
+    _to_body: math.Mat3,
+
+    pub const default: Params = .{
+        .gyr_bias = .zero,
+        .acc_bias = .zero,
+        .acc_scale = .one,
+        ._to_body = .identity,
+    };
+};
 
 pub const Data = struct {
     ts: time.Absolute,
@@ -57,15 +72,12 @@ pub const Imu = struct {
         };
 
         const params = parameter.get(struct {
-            imu: struct {
-                gyr_bias: math.Vec3,
-                acc_bias: math.Vec3,
-                acc_scale: math.Vec3,
-                _to_body: math.Mat3,
-            },
+            imu: Params,
         });
 
-        imu.calibrator.update(raw_data);
+        if (imu.calibrator.update(raw_data)) {
+            arm_block_calibrating.release();
+        }
 
         var gyro = raw_data.gyro;
         gyro = .sub(gyro, params.imu.gyr_bias);
@@ -86,12 +98,11 @@ pub const Imu = struct {
     }
 
     fn calibrate_callback(imu: *Imu, _: void) void {
-        const arm_state = if (control.msg_status.get()) |status| status.armed else false;
-        if (!arm_state) {
-            imu.calibrator = .enable;
-        } else {
-            log.warn("skipping imu calibration because system is armed", .{});
-        }
+        arm_block_calibrating.acquire() catch |err| {
+            log.warn("skipping calibration: {}", .{err});
+            return;
+        };
+        imu.calibrator = .enable;
     }
 };
 
@@ -115,10 +126,10 @@ pub const Calibrator = struct {
         .accel_bias_accum = .zero,
     };
 
-    pub fn update(calibrator: *Calibrator, data: Driver.Data) void {
+    pub fn update(calibrator: *Calibrator, data: Driver.Data) bool {
         const SAMPLE_COUNT: u32 = 1000;
 
-        if (!calibrator.enabled) return;
+        if (!calibrator.enabled) return false;
 
         calibrator.gyro_bias_accum = .add(calibrator.gyro_bias_accum, data.gyro);
         calibrator.accel_bias_accum = .add(calibrator.accel_bias_accum, data.accel);
@@ -152,6 +163,10 @@ pub const Calibrator = struct {
             } });
 
             calibrator.* = .init;
+
+            return true;
+        } else {
+            return false;
         }
     }
 };

@@ -45,6 +45,7 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
         const HEADER_OFFSET = TAG_OFFSET + WRITE_SIZE;
         const KEY_OFFSET = HEADER_OFFSET + alignForward(u16, @sizeOf(ItemHeader), WRITE_SIZE);
         const VALUE_OFFSET = KEY_OFFSET + alignForward(u16, @sizeOf(Key), WRITE_SIZE);
+        const MAX_ITEM_LEN = ERASE_SIZE - WRITE_SIZE; // don't forget the sector tag
 
         flash: Flash,
         range_start: u32,
@@ -144,10 +145,12 @@ pub fn StorageGeneric(Flash: type, Key: type, options: StorageGenericOptions) ty
         pub fn store(storage: *Storage, key: Key, value: anytype) !void {
             if (comptime !is_type_allowed(@TypeOf(value))) @compileError("invalid value type " ++ @typeName(@TypeOf(value)));
 
-            const item_len: u16 = VALUE_OFFSET + @sizeOf(@TypeOf(value));
-            const item_stride = alignForward(u16, item_len, WRITE_SIZE);
-            if (item_stride > ERASE_SIZE - WRITE_SIZE) { // don't forget the sector tag
-                return error.ItemTooBig;
+            const item_len: u16 = comptime VALUE_OFFSET + @sizeOf(@TypeOf(value));
+            const item_stride = comptime alignForward(u16, item_len, WRITE_SIZE);
+            if (item_stride > MAX_ITEM_LEN) {
+                @compileError(std.fmt.comptimePrint("storage item value too big: max size is {} bytes, got {} bytes", .{
+                    MAX_ITEM_LEN, item_stride,
+                }));
             }
 
             var recursive_limit: u32 = (storage.range_end - storage.range_start) / ERASE_SIZE;

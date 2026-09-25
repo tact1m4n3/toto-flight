@@ -7,6 +7,34 @@ const Receiver = Scheduler.Receiver;
 const control = @import("control.zig");
 const math = @import("math.zig");
 
+pub const Params = extern struct {
+    mtr: [hw.motors.count]extern struct {
+        // TODO: throttle curve
+        mix: math.Vec3,
+    },
+    srv: [hw.servos.count]extern struct {
+        mid: u16,
+        thr: u16,
+        mix: math.Vec3,
+    },
+
+    pub const default: Params = .{
+        .mtr = @splat(.{ .mix = .zero }),
+        .srv = .{
+            .{
+                .mid = 1700,
+                .thr = 200,
+                .mix = .{ .x = -1.0, .y = -1.0, .z = 0.0 },
+            },
+            .{
+                .mid = 1300,
+                .thr = 200,
+                .mix = .{ .x = -1.0, .y = 1.0, .z = 0.0 },
+            },
+        },
+    };
+};
+
 pub const Actuator = struct {
     rcv_output: Receiver(control.ActuatorOutput) = undefined,
 
@@ -24,17 +52,7 @@ pub const Actuator = struct {
 
     pub fn command_callback(_: *Actuator, output: control.ActuatorOutput) void {
         const params = parameter.get(struct {
-            act: struct {
-                mtr: [hw.motors.count]struct {
-                    // TODO: throttle curve
-                    mix: math.Vec3,
-                },
-                srv: [hw.servos.count]struct {
-                    mid: u16,
-                    thr: u16,
-                    mix: math.Vec3,
-                },
-            },
+            act: Params,
         });
 
         if (output.throttle >= 0.05) {

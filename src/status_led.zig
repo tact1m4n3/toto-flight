@@ -26,7 +26,7 @@ pub const StatusLed = struct {
     }
 
     pub fn tick_callback(status_led: *StatusLed, _: void) void {
-        const status = control.msg_status.get() orelse return;
+        const status = control.get_status();
 
         const color: drivers.Color = if (status.armed)
             .dark_red

@@ -11,6 +11,7 @@ const drivers = @import("drivers.zig");
 
 const log = std.log.scoped(.storage);
 
+pub var arm_block: control.ArmBlock = .init;
 pub var msg_save: Message(void) = .{};
 pub var msg_load: Message(void) = .{};
 
@@ -35,39 +36,53 @@ pub const Storage = struct {
 
         parameter.register_watcher(&storage.param_watcher);
 
-        storage.load();
+        if (storage.driver.fetch(.params, parameter.Table)) |maybe_table| {
+            if (maybe_table) |table| {
+                parameter.load(table);
+            }
+        } else |err| {
+            log.warn("failed to load parameters: {}", .{err});
+        }
 
         msg_save.subscribe(&storage.rcv_save, *Storage, storage, save_callback, scheduler);
     }
 
     fn save_callback(storage: *Storage, _: void) void {
-        const arm_state = if (control.msg_status.get()) |status| status.armed else false;
-        if (arm_state) {
-            log.warn("skipping config save because system is armed", .{});
+        arm_block.acquire() catch {
+            log.warn("skipped parameter save... maybe armed", .{});
+            return;
+        };
+        defer arm_block.release();
+
+        const changed = storage.param_watcher.get_and_clear();
+        if (changed.count() == 0) {
             return;
         }
 
-        const changed = storage.param_watcher.get_and_clear();
-        if (changed != .empty) {
-            log.info("saving config", .{});
-            storage.driver.store(.{ .kind = .params }, parameter.dump()) catch |err| {
-                log.warn("failed to save config: {}", .{err});
-            };
-        }
-    }
-
-    fn load(storage: *Storage) !void {
-        const table = storage.driver.fetch(.{ .kind = .params }) catch |err| {
+        log.info("saving config", .{});
+        storage.driver.store(.params, parameter.dump()) catch |err| {
             log.warn("failed to save config: {}", .{err});
         };
-        parameter.load(table);
+    }
+
+    fn load_callback(storage: *Storage, _: void) void {
+        arm_block.acquire() orelse {
+            log.warn("skipped parameter load... maybe armed", .{});
+            return;
+        };
+        defer arm_block.release();
+
+        const maybe_table = storage.driver.fetch(.params, parameter.Table) catch |err| {
+            log.warn("failed to load parameters: {}", .{err});
+            return;
+        };
+        if (maybe_table) |table| {
+            parameter.load(table);
+        }
     }
 };
 
-pub const Key = packed struct(u8) {
-    kind: enum(u2) {
-        params = 0,
-        mission = 1,
-    },
-    index: u6,
+pub const Key = enum(u8) {
+    params = 0,
+    mission = 1,
 };

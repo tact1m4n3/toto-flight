@@ -72,6 +72,9 @@ pub const Rx_CRSF = struct {
 };
 
 pub const RxMavlink = struct {
+    // TODO: SYSTEM_TIME
+    // TODO: MISSION_ACK
+    //
     // IDK if we need:
     // TODO: COMPONENT_INFORMATION
     // TODO: GIMBAL_MANAGER_INFORMATION
@@ -185,14 +188,42 @@ pub const RxMavlink = struct {
             //     return;
             // }
 
-            const armed = if (control.msg_status.get()) |status|
-                status.armed
-            else
-                false;
+            const armed = control.get_status().armed;
 
             switch (packet) {
                 .RADIO_STATUS => |status| {
                     rx.txbuf = status.txbuf;
+                },
+                .RC_CHANNELS_OVERRIDE => |rc| {
+                    const S = struct {
+                        fn process_channel(raw: u16) u16 {
+                            if (raw != 0 and raw != std.math.maxInt(u16)) {
+                                return raw;
+                            } else {
+                                return 1500;
+                            }
+                        }
+                    };
+                    const raw_channels: [16]u16 = .{
+                        S.process_channel(rc.chan1_raw),
+                        S.process_channel(rc.chan2_raw),
+                        S.process_channel(rc.chan3_raw),
+                        S.process_channel(rc.chan4_raw),
+                        S.process_channel(rc.chan5_raw),
+                        S.process_channel(rc.chan6_raw),
+                        S.process_channel(rc.chan7_raw),
+                        S.process_channel(rc.chan8_raw),
+                        S.process_channel(rc.chan9_raw),
+                        S.process_channel(rc.chan10_raw),
+                        S.process_channel(rc.chan11_raw),
+                        S.process_channel(rc.chan12_raw),
+                        S.process_channel(rc.chan13_raw),
+                        S.process_channel(rc.chan14_raw),
+                        S.process_channel(rc.chan15_raw),
+                        S.process_channel(rc.chan16_raw),
+                    };
+                    const channels: Channels = .init(.aetr1234, &raw_channels);
+                    msg_channels.publish(channels);
                 },
                 .HEARTBEAT => |heartbeat| {
                     if (heartbeat.type == .MAV_TYPE_GCS and !rx.gcs_connected) {
@@ -284,8 +315,6 @@ pub const RxMavlink = struct {
                         log.warn("failed to set param {s}: {}", .{ param_id.as_slice(), err });
                     };
                 },
-
-                else => {},
             }
         }
     }

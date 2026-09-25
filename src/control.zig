@@ -1,10 +1,12 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 const hw = @import("hw.zig");
 const math = @import("math.zig");
 const time = @import("time.zig");
 const fusion = @import("fusion.zig");
 const imu = @import("imu.zig");
+const storage = @import("storage.zig");
 const receiver = @import("receiver.zig");
 const Scheduler = @import("Scheduler.zig");
 const Message = Scheduler.Message;
@@ -13,8 +15,39 @@ const parameter = @import("parameter.zig");
 
 const log = std.log.scoped(.control);
 
-pub var msg_status: Message(Status) = .{};
+var global_status: std.atomic.Value(Status) = .init(.{
+    .armed = false,
+    .failsafe = true,
+});
 pub var msg_actuator_output: Message(ActuatorOutput) = .{};
+
+pub const RateParams = extern struct {
+    roll: AxisGains,
+    pitch: AxisGains,
+    yaw: AxisGains,
+
+    pub const AxisGains = extern struct {
+        kff: f32,
+        kp: f32,
+        ki: f32,
+    };
+
+    pub const default: RateParams = .{
+        .roll = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
+        .pitch = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
+        .yaw = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
+    };
+};
+
+pub fn get_status() Status {
+    return global_status.load(.monotonic);
+}
+
+pub const Status = packed struct(u32) {
+    armed: bool,
+    failsafe: bool,
+    _reserved: u30 = 0,
+};
 
 pub const Loop = struct {
     rcv_tick_rate: Receiver(imu.Data) = undefined,
@@ -108,8 +141,6 @@ pub const Loop = struct {
         const ANGLE_ROLL_KP = 0.5;
         const ANGLE_PITCH_KP = 0.5;
 
-        const MAX_ARM_THROTTLE_US = 1100;
-
         const now = hw.get_time_since_boot();
 
         const command_in_due_time = if (control.command_received_time) |command_received_time|
@@ -140,13 +171,12 @@ pub const Loop = struct {
             .disarmed => if (!control.failsafe_state.is_failsafe() and control.command != .disarm) {
                 // if it is failsafe, don't trust the command
 
-                const channels: receiver.Channels = receiver.msg_channels.get() orelse .default;
-                if (channels.get(.throttle) > MAX_ARM_THROTTLE_US) {
-                    log.warn("arm failed", .{});
-                    control.arm_state = .arm_failed;
-                } else {
+                if (control.arm_checks_pass()) {
                     log.info("armed", .{});
                     control.arm_state = .armed;
+                } else {
+                    log.warn("arm failed", .{});
+                    control.arm_state = .arm_failed;
                 }
             },
             .armed, .arm_failed => if (control.command == .disarm or control.failsafe_state.is_failsafe()) {
@@ -155,10 +185,10 @@ pub const Loop = struct {
             },
         }
 
-        msg_status.publish(.{
-            .failsafe = control.failsafe_state.is_failsafe(),
+        global_status.store(.{
             .armed = control.arm_state == .armed,
-        });
+            .failsafe = control.failsafe_state.is_failsafe(),
+        }, .monotonic);
 
         const command: Command = if (control.arm_state == .armed) control.command else .disarm;
         control.rate_command = switch (command) {
@@ -182,6 +212,28 @@ pub const Loop = struct {
     fn new_command_callback(control: *Loop, command: Command) void {
         control.command = command;
         control.command_received_time = hw.get_time_since_boot();
+    }
+
+    fn arm_checks_pass(_: *Loop) bool {
+        const MAX_ARM_THROTTLE_US = 1100;
+
+        const channels: receiver.Channels = receiver.msg_channels.get() orelse .default;
+        if (channels.get(.throttle) > MAX_ARM_THROTTLE_US) {
+            log.warn("failed to arm... throttle high", .{});
+            return false;
+        }
+
+        if (imu.arm_block_calibrating.is_blocking()) {
+            log.warn("failed to arm... imu calibration", .{});
+            return false;
+        }
+
+        if (storage.arm_block.is_blocking()) {
+            log.warn("failed to arm... storage operation", .{});
+            return false;
+        }
+
+        return true;
     }
 };
 
@@ -239,18 +291,6 @@ pub const RateCommand = struct {
     rate: math.Vec3,
 };
 
-pub const RateParams = struct {
-    roll: AxisGains,
-    pitch: AxisGains,
-    yaw: AxisGains,
-
-    pub const AxisGains = struct {
-        kff: f32,
-        kp: f32,
-        ki: f32,
-    };
-};
-
 /// The i term only accumulates while the rate error is small, so a large
 /// tracking error can't wind it up.
 const i_term_max_error: f32 = 0.5;
@@ -304,7 +344,27 @@ pub const RateController = struct {
     }
 };
 
-pub const Status = packed struct {
-    armed: bool,
-    failsafe: bool,
+pub const ArmBlock = struct {
+    state: std.atomic.Value(bool),
+
+    pub const init: ArmBlock = .{
+        .state = .init(false),
+    };
+
+    pub fn is_blocking(arm_block: *ArmBlock) bool {
+        return arm_block.state.load(.monotonic);
+    }
+
+    pub fn acquire(arm_block: *ArmBlock) !void {
+        if (global_status.load(.acquire).armed) {
+            return error.Armed;
+        }
+        if (arm_block.state.swap(true, .acquire) == false) {
+            return error.AlreadyAcquired;
+        }
+    }
+
+    pub fn release(arm_block: *ArmBlock) void {
+        arm_block.state.store(false, .release);
+    }
 };
