@@ -33,9 +33,9 @@ pub const RateParams = extern struct {
     };
 
     pub const default: RateParams = .{
-        .roll = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
-        .pitch = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
-        .yaw = .{ .kff = 1.0, .kp = 1.5, .ki = 0.8 },
+        .roll = .{ .kff = 1.0, .kp = 0.1, .ki = 0.05 },
+        .pitch = .{ .kff = 1.0, .kp = 0.1, .ki = 0.05 },
+        .yaw = .{ .kff = 1.0, .kp = 0.0, .ki = 0.0 },
     };
 };
 
@@ -54,7 +54,7 @@ pub const Loop = struct {
     rcv_tick_nav: Receiver(void) = undefined,
     rcv_command: Receiver(Command) = undefined,
 
-    last_rate_tick: time.Absolute = .from_us(0),
+    last_rate_tick: ?time.Absolute = null,
 
     command_received_time: ?time.Absolute = null,
     command: Command = .disarm,
@@ -99,10 +99,12 @@ pub const Loop = struct {
     }
 
     fn rate_tick_callback(control: *Loop, data: imu.Data) void {
-        const duration_since_last_tick = data.ts.diff(control.last_rate_tick);
-        control.last_rate_tick = data.ts;
-
-        const dt = duration_since_last_tick.to_secs_f32();
+        // TODO: helper struct for dt calculation
+        const now = hw.get_time_since_boot();
+        const last_tick = control.last_rate_tick orelse now;
+        control.last_rate_tick = now;
+        const dt = now.diff(last_tick);
+        const dt_f32 = dt.to_secs_f32();
 
         const params = parameter.get(struct {
             rate: RateParams,
@@ -119,7 +121,7 @@ pub const Loop = struct {
                 continue :loop .{
                     .manual = .{
                         .throttle = target.throttle,
-                        .throw = control.rate_controller.update(&params.rate, target.rate, data.gyro, dt),
+                        .throw = control.rate_controller.update(&params.rate, target.rate, data.gyro, dt_f32),
                     },
                 };
             },
@@ -134,6 +136,7 @@ pub const Loop = struct {
     }
 
     fn nav_tick_callback(control: *Loop, _: void) void {
+        // TODO: configurable
         const MIN_COMMAND_PERIOD: time.Duration = .from_hz(5);
         const FAILSAFE_PROBATION_DURATION: time.Duration = .from_ms(500);
         const FAILSAFE_RECOVERY_DURATION: time.Duration = .from_ms(1000);
@@ -195,13 +198,14 @@ pub const Loop = struct {
             .angle => |target| blk: {
                 const attitude = fusion.msg_attitude.get() orelse
                     break :blk null;
+                const euler_angles = attitude.to_euler_angles();
 
                 break :blk .{
                     .throttle = target.throttle,
                     .rate = .{
-                        .x = (target.angle_roll - attitude.x) * ANGLE_ROLL_KP,
-                        .y = (target.angle_pitch - attitude.y) * ANGLE_PITCH_KP,
-                        .z = 0.0,
+                        .x = (target.angle_roll - euler_angles.x) * ANGLE_ROLL_KP,
+                        .y = (target.angle_pitch - euler_angles.y) * ANGLE_PITCH_KP,
+                        .z = target.rate_yaw,
                     },
                 };
             },
@@ -215,7 +219,7 @@ pub const Loop = struct {
     }
 
     fn arm_checks_pass(_: *Loop) bool {
-        const MAX_ARM_THROTTLE_US = 1100;
+        const MAX_ARM_THROTTLE_US = 1100; // TODO: configurable
 
         const channels: receiver.Channels = receiver.msg_channels.get() orelse .default;
         if (channels.get(.throttle) > MAX_ARM_THROTTLE_US) {
@@ -262,13 +266,15 @@ const FailsafeState = union(enum) {
 pub const Command = union(enum) {
     disarm,
     manual: ActuatorOutput,
-    /// rad/s
     rate: RateCommand,
-    /// rad
     angle: struct {
         throttle: f32,
+        /// rad
         angle_roll: f32,
+        /// rad
         angle_pitch: f32,
+        /// rad/s
+        rate_yaw: f32,
     },
 };
 
@@ -312,11 +318,11 @@ pub const RateController = struct {
         ) f32 {
             const rate_error = target_rate - current_rate;
 
-            const ff_term = gains.kff * target_rate;
-            const p_term = gains.kp * rate_error;
+            const ff_term = gains.kff * target_rate / std.math.pi;
+            const p_term = gains.kp * rate_error / std.math.pi;
 
             if (@abs(rate_error) <= i_term_max_error) {
-                axis.i_term += gains.ki * rate_error * dt;
+                axis.i_term += gains.ki * rate_error / std.math.pi * dt;
             }
 
             return ff_term + p_term + axis.i_term;
@@ -359,7 +365,7 @@ pub const ArmBlock = struct {
         if (global_status.load(.acquire).armed) {
             return error.Armed;
         }
-        if (arm_block.state.swap(true, .acquire) == false) {
+        if (arm_block.state.swap(true, .acquire) != false) {
             return error.AlreadyAcquired;
         }
     }

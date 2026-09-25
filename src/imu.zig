@@ -21,13 +21,13 @@ pub const Params = extern struct {
     gyr_bias: math.Vec3,
     acc_bias: math.Vec3,
     acc_scale: math.Vec3,
-    _to_body: math.Mat3,
+    @"2_body": math.Mat3,
 
     pub const default: Params = .{
         .gyr_bias = .zero,
         .acc_bias = .zero,
         .acc_scale = .one,
-        ._to_body = .identity,
+        .@"2_body" = .identity,
     };
 };
 
@@ -81,13 +81,13 @@ pub const Imu = struct {
 
         var gyro = raw_data.gyro;
         gyro = .sub(gyro, params.imu.gyr_bias);
-        gyro = params.imu._to_body.transform(gyro);
-        gyro = .mul_scalar(gyro, comptime math.radians_from_degrees(1.0));
+        gyro = params.imu.@"2_body".transform(gyro);
+        gyro = .mul_scalar(gyro, std.math.pi / 180.0);
 
         var accel = raw_data.accel;
         accel = .sub(accel, params.imu.acc_bias);
         accel = .mul(accel, params.imu.acc_scale);
-        accel = params.imu._to_body.transform(accel);
+        accel = params.imu.@"2_body".transform(accel);
         accel = .mul_scalar(accel, 9.80665);
 
         msg_data.publish(.{
@@ -136,30 +136,29 @@ pub const Calibrator = struct {
         calibrator.sample_count += 1;
 
         if (calibrator.sample_count >= SAMPLE_COUNT) {
-            const gyro_mean: math.Vec3 = calibrator.gyro_bias_accum.div_scalar(@floatFromInt(calibrator.sample_count));
-            const accel_mean: math.Vec3 = calibrator.accel_bias_accum.div_scalar(@floatFromInt(calibrator.sample_count));
-
-            const down = accel_mean.normalize().negate();
-            const front_ref = if (down.length() < 0.9) math.Vec3.axis(.x) else math.Vec3.axis(.z).negate();
-
-            const board_forward_angle = parameter.get(struct {
+            const board_forward_angle_deg = parameter.get(struct {
                 cor: struct {
                     fwd_angl: f32,
                 },
             }).cor.fwd_angl;
 
-            const board_rotation: math.Quaternion = .from_axis_angle(down, board_forward_angle);
+            const gyro_mean: math.Vec3 = calibrator.gyro_bias_accum.div_scalar(@floatFromInt(calibrator.sample_count));
+            const accel_mean: math.Vec3 = calibrator.accel_bias_accum.div_scalar(@floatFromInt(calibrator.sample_count));
 
+            const down = accel_mean.normalize().negate();
+
+            const dot_x = @abs(down.dot(math.Vec3.axis(.x)));
+            const front_ref = if (dot_x > 0.8) math.Vec3.axis(.y) else math.Vec3.axis(.x);
             const unrotated_right = down.cross(front_ref).normalize();
-            const right = board_rotation.rotate(unrotated_right);
 
+            const right = unrotated_right.rotate_around_axis(down, math.radians_from_degrees(board_forward_angle_deg));
             const front = right.cross(down).normalize();
 
             const imu_to_body: math.Mat3 = .init_from_rows(front, right, down);
 
             parameter.modify(.{ .imu = .{
-                .gyro_bias = gyro_mean,
-                ._imu_to_body = imu_to_body,
+                .gyr_bias = gyro_mean,
+                .@"2_body" = imu_to_body,
             } });
 
             calibrator.* = .init;

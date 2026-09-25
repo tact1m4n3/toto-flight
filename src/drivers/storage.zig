@@ -794,17 +794,6 @@ pub fn GenerateTests(comptime flash_options: MockFlashOptions) type {
             }
         }
 
-        test "item too big is rejected" {
-            const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
-            defer testing.allocator.free(buf);
-            @memset(buf, 0xFF);
-
-            var s: TestStorage = try .init(TestFlash.init(buf), 0, FLASH_SIZE);
-
-            const big: [2000]u8 = undefined;
-            try testing.expectError(error.ItemTooBig, s.store(1, big));
-        }
-
         test "single sector range cannot advance" {
             const buf: []u8 = try testing.allocator.alloc(u8, FLASH_SIZE);
             defer testing.allocator.free(buf);

@@ -60,15 +60,27 @@ pub fn Queue(T: type, capacity: usize) type {
             self.len += 1;
         }
 
-        pub fn pop(self: *Self) ?T {
+        pub fn peek(self: *Self) ?T {
             if (self.len == 0) {
                 return null;
             }
+            return self.buffer[self.read_pos];
+        }
 
-            const value = self.buffer[self.read_pos];
-            self.read_pos = (self.read_pos + 1) % capacity;
-            self.len -= 1;
-            return value;
+        pub fn discard(self: *Self) void {
+            if (self.len > 0) {
+                self.read_pos = (self.read_pos + 1) % capacity;
+                self.len -= 1;
+            }
+        }
+
+        pub fn pop(self: *Self) ?T {
+            if (self.peek()) |value| {
+                self.discard();
+                return value;
+            } else {
+                return null;
+            }
         }
     };
 }

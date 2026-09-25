@@ -4,6 +4,7 @@ const microzig = @import("microzig");
 const actuator = @import("actuator.zig");
 const battery = @import("battery.zig");
 const control = @import("control.zig");
+const fusion = @import("fusion.zig");
 const hw = @import("hw.zig");
 const imu = @import("imu.zig");
 const receiver = @import("receiver.zig");
@@ -33,6 +34,7 @@ pub var scheduler_low: Scheduler = .init(hw.chip.scheduler_get_pend_fn(.low));
 var task_storage: storage.Storage = undefined;
 
 var task_imu: imu.Imu = undefined;
+var task_attitude_estimator: fusion.AttitudeEstimator = undefined;
 var task_control: control.Loop = undefined;
 var task_actuator: actuator.Actuator = undefined;
 
@@ -57,6 +59,7 @@ pub fn main() void {
 
         task_cpu_usage.init(&scheduler_realtime);
         task_imu.init(&scheduler_realtime);
+        task_attitude_estimator.init(&scheduler_realtime);
         task_control.init(&scheduler_realtime);
         task_actuator.init(&scheduler_realtime);
 

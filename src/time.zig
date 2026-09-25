@@ -12,6 +12,10 @@ pub const Absolute = enum(u64) {
         return @backingInt(abs);
     }
 
+    pub fn to_ms(abs: Absolute) u64 {
+        return @backingInt(abs) / 1000;
+    }
+
     pub fn is_reached_by(deadline: Absolute, point: Absolute) bool {
         return deadline.to_us() <= point.to_us();
     }

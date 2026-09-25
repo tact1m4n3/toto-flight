@@ -42,6 +42,8 @@ pub const OutgoingMessage = union(enum) {
     MISSION_COUNT: messages.MISSION_COUNT,
 
     PARAM_VALUE: messages.PARAM_VALUE,
+
+    ATTITUDE_QUATERNION: messages.ATTITUDE_QUATERNION,
 };
 
 pub const Parser = struct {

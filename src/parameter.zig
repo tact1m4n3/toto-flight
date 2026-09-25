@@ -24,9 +24,11 @@ pub const id_to_index: std.StaticStringMap(usize) = blk: {
 
 pub const Table = extern struct {
     cor: extern struct {
+        /// deg
         fwd_angl: f32,
     },
     imu: @import("imu.zig").Params,
+    fuse: @import("fusion.zig").Params,
     rate: @import("control.zig").RateParams,
     act: @import("actuator.zig").Params,
 
@@ -35,6 +37,7 @@ pub const Table = extern struct {
             .fwd_angl = 0.0,
         },
         .imu = .default,
+        .fuse = .default,
         .rate = .default,
         .act = .default,
     };
@@ -258,6 +261,8 @@ inline fn get_params_comptime_inner(
     }
 }
 
+// TODO: this currently silently ignores fields that are not present in the
+// value, but we should error instead.
 inline fn modify_params_comptime_inner(comptime T: type, ptr: *T, value: anytype, index: *usize, changed: anytype) void {
     if (comptime AnyValueType.from_type(T)) |_| {
         if (@TypeOf(value) != void) {
@@ -271,7 +276,6 @@ inline fn modify_params_comptime_inner(comptime T: type, ptr: *T, value: anytype
     switch (@typeInfo(T)) {
         .@"struct" => |info| {
             inline for (info.field_names, info.field_types) |field_name, FieldType| {
-                if (field_name[0] == '_') continue;
                 const next_value = if (@TypeOf(value) != void and @hasField(@TypeOf(value), field_name))
                     @field(value, field_name)
                 else {};
@@ -308,7 +312,6 @@ inline fn get_param_inner(comptime T: type, ptr: *T, remaining: *usize) ?AnyValu
     switch (@typeInfo(T)) {
         .@"struct" => |info| {
             inline for (info.field_names, info.field_types) |field_name, FieldType| {
-                if (field_name[0] == '_') continue;
                 if (get_param_inner(FieldType, &@field(ptr.*, field_name), remaining)) |value| {
                     return value;
                 }
@@ -334,7 +337,6 @@ fn collect_param_ids(comptime T: type, comptime prefix: []const u8) []const []co
         .@"struct" => |info| {
             var result: []const []const u8 = &.{};
             inline for (info.field_names, info.field_types) |field_name, FieldType| {
-                if (field_name[0] == '_') continue;
                 const new_prefix = if (prefix.len == 0) field_name else prefix ++ "." ++ field_name;
                 result = result ++ collect_param_ids(FieldType, new_prefix);
             }
@@ -359,7 +361,6 @@ test "comptime helpers" {
     const Params = struct {
         a: u32,
         b: f32,
-        _hidden: u32 = 0,
         c: [2]struct {
             d: u8,
             e: u16,

@@ -2,12 +2,13 @@ const std = @import("std");
 const assert = std.debug.assert;
 const testing = std.testing;
 
+const bounded = @import("utils/bounded.zig");
 const time = @import("time.zig");
-const actuator = @import("actuator.zig");
 const storage = @import("storage.zig");
 const control = @import("control.zig");
 const parameter = @import("parameter.zig");
 const hw = @import("hw.zig");
+const fusion = @import("fusion.zig");
 const imu = @import("imu.zig");
 const math = @import("math.zig");
 const Scheduler = @import("Scheduler.zig");
@@ -79,7 +80,7 @@ pub const RxMavlink = struct {
     // TODO: COMPONENT_INFORMATION
     // TODO: GIMBAL_MANAGER_INFORMATION
     //
-    // TODO: separate code into microservices
+    // TODO: configurable at comptime/runtime
 
     const uart = hw.UART.get(.receiver);
     const send_tick_rate: hw.TickRate = .@"100Hz";
@@ -104,6 +105,7 @@ pub const RxMavlink = struct {
         .{ .name = "angle", .properties = .{ .MAV_MODE_PROPERTY_ADVANCED = true } },
         .{ .standard = .MAV_STANDARD_MODE_CRUISE, .properties = .{ .MAV_MODE_PROPERTY_AUTO_MODE = true } },
     };
+    const command_ack_queue_capacity = 10;
 
     rcv_tick: Receiver(void) = undefined,
     param_watcher: parameter.Watcher = .{},
@@ -116,27 +118,22 @@ pub const RxMavlink = struct {
     tick_count: u32 = 0,
     gcs_connected: bool = false,
     heartbeat_seq: u8 = 0,
+    periodic: Periodic = .{ .tick_period = send_tick_rate.get_period() },
     one_shot: packed struct {
         autopilot_version: bool = false,
         mission_count: bool = false,
     } = .{},
+    command_ack: bounded.Queue(CommandAck, command_ack_queue_capacity) = .empty,
+    send_available_modes: ?SendAvailableModes = null,
 
-    send_available_modes: SendAvailableModes = .idle,
+    const CommandAck = struct {
+        command: mavlink.enums.MAV_CMD,
+        result: mavlink.enums.MAV_RESULT,
+    };
 
     const SendAvailableModes = struct {
         specific: bool,
         current_index: u8,
-        state: enum {
-            idle,
-            ack,
-            send,
-        },
-
-        pub const idle: SendAvailableModes = .{
-            .specific = false,
-            .current_index = 0,
-            .state = .idle,
-        };
     };
 
     const ParamId = struct {
@@ -170,6 +167,9 @@ pub const RxMavlink = struct {
         hw.ticker(send_tick_rate).subscribe(&rx.rcv_tick, *RxMavlink, rx, send_callback, scheduler);
 
         parameter.register_watcher(&rx.param_watcher);
+
+        rx.periodic.add(.HEARTBEAT, comptime .from_hz(1)) catch unreachable;
+        rx.periodic.add(.ATTITUDE_QUATERNION, comptime .from_hz(1)) catch unreachable;
     }
 
     fn receive_callback(rx: *RxMavlink, byte: u8) void {
@@ -232,42 +232,67 @@ pub const RxMavlink = struct {
                     }
                 },
                 .COMMAND_LONG => |command| {
+                    var ack_result: mavlink.enums.MAV_RESULT = .MAV_RESULT_UNSUPPORTED;
+
                     switch (command.command) {
                         .MAV_CMD_REQUEST_MESSAGE => {
                             if (std.enums.fromInt(mavlink.MessageId, std.math.lossyCast(u24, command.param1))) |id| {
                                 switch (id) {
-                                    .AUTOPILOT_VERSION => rx.one_shot.autopilot_version = true,
-                                    .AVAILABLE_MODES => if (rx.send_available_modes.state == .idle) {
-                                        const index = std.math.lossyCast(u8, command.param2);
-                                        rx.send_available_modes = .{
-                                            .specific = index != 0,
-                                            .current_index = if (index != 0) index else 1,
-                                            .state = .ack,
-                                        };
+                                    .AUTOPILOT_VERSION => {
+                                        rx.one_shot.autopilot_version = true;
+                                        ack_result = .MAV_RESULT_ACCEPTED;
+                                    },
+                                    .AVAILABLE_MODES => if (rx.send_available_modes == null) {
+                                        const raw_index = std.math.lossyCast(u8, command.param2);
+                                        const index = if (raw_index != 0) raw_index else 1;
+                                        if (index <= flight_modes.len) {
+                                            rx.send_available_modes = .{
+                                                .specific = index != 0,
+                                                .current_index = if (index != 0) index else 1,
+                                            };
+                                            ack_result = .MAV_RESULT_ACCEPTED;
+                                        } else {
+                                            log.warn("invalid available modes request: {d}", .{index});
+                                            ack_result = .MAV_RESULT_DENIED;
+                                        }
+                                    } else {
+                                        ack_result = .MAV_RESULT_IN_PROGRESS;
                                     },
                                     else => log.warn("unknown message request: {t}", .{id}),
                                 }
                             }
                         },
                         .MAV_CMD_PREFLIGHT_CALIBRATION => if (!armed) {
-                            if (command.param1 == 1.0) {
+                            if (command.param1 == 1.0 or command.param5 == 1.0) {
                                 log.info("imu calibration requested", .{});
                                 imu.msg_calibrate.publish({});
+                                ack_result = .MAV_RESULT_ACCEPTED;
                             }
                         },
                         .MAV_CMD_PREFLIGHT_STORAGE => if (!armed) {
                             if (command.param1 == 1.0) {
-                                log.info("saving config to flash", .{});
+                                log.info("config save to flash requested", .{});
                                 storage.msg_save.publish({});
+                                ack_result = .MAV_RESULT_ACCEPTED;
                             } else if (command.param1 == 0.0) {
-                                // config load from flash: NOP
+                                log.info("config load from flash requested", .{});
+                                storage.msg_load.publish({});
+                                ack_result = .MAV_RESULT_ACCEPTED;
                             } else if (command.param1 == 2.0) {
                                 log.info("reset config to default", .{});
                                 parameter.reset_to_default();
+                                ack_result = .MAV_RESULT_ACCEPTED;
                             }
                         },
                         else => std.log.warn("unknown command: {t}", .{command.command}),
                     }
+
+                    rx.command_ack.append(.{
+                        .command = command.command,
+                        .result = ack_result,
+                    }) catch {
+                        log.warn("too many command ack...", .{});
+                    };
                 },
                 .MISSION_REQUEST_LIST => {
                     // TODO: state machine for mission download
@@ -327,18 +352,54 @@ pub const RxMavlink = struct {
 
         defer rx.tick_count +%= 1;
 
-        if (rx.tick_count % 100 == 0) {
-            rx.send_message(&.{ .HEARTBEAT = .{
-                .custom_mode = 0,
-                .type = .MAV_TYPE_FIXED_WING,
-                .autopilot = .MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY,
-                .base_mode = .{},
-                .system_status = .MAV_STATE_STANDBY,
-                .mavlink_version = 3,
-            } }, .{
-                .seq = rx.heartbeat_seq,
-            }) catch return;
-            rx.heartbeat_seq +%= 1;
+        {
+            var limit: usize = rx.command_ack.len;
+            while (limit > 0) : (limit -= 1) {
+                const command = rx.command_ack.peek() orelse break;
+                rx.send_message(&.{ .COMMAND_ACK = .{
+                    .command = command.command,
+                    .result = command.result,
+                } }, .{}) catch return;
+                rx.command_ack.discard();
+            }
+        }
+
+        {
+            rx.periodic.tick();
+            for (rx.periodic.messages.items()) |*item| {
+                if (!item.ready) continue;
+
+                switch (item.message_id) {
+                    .HEARTBEAT => {
+                        rx.send_message(&.{ .HEARTBEAT = .{
+                            .custom_mode = 0,
+                            .type = .MAV_TYPE_FIXED_WING,
+                            .autopilot = .MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY,
+                            .base_mode = .{},
+                            .system_status = .MAV_STATE_STANDBY,
+                            .mavlink_version = 3,
+                        } }, .{
+                            .seq = rx.heartbeat_seq,
+                        }) catch return;
+                        rx.heartbeat_seq +%= 1;
+                    },
+                    .ATTITUDE_QUATERNION => if (fusion.msg_attitude.get()) |attitude| {
+                        rx.send_message(&.{ .ATTITUDE_QUATERNION = .{
+                            .time_boot_ms = @truncate(hw.get_time_since_boot().to_ms()),
+                            .q1 = attitude.w,
+                            .q2 = attitude.x,
+                            .q3 = attitude.y,
+                            .q4 = attitude.z,
+                            .rollspeed = 0.0,
+                            .pitchspeed = 0.0,
+                            .yawspeed = 0.0,
+                        } }, .{}) catch return;
+                    },
+                    else => {},
+                }
+
+                item.ready = false;
+            }
         }
 
         if (rx.one_shot.autopilot_version) {
@@ -371,30 +432,11 @@ pub const RxMavlink = struct {
             rx.one_shot.mission_count = false;
         }
 
-        send_available_modes: switch (rx.send_available_modes.state) {
-            .idle => {},
-            .ack => {
-                if (rx.send_available_modes.current_index == 0 or rx.send_available_modes.current_index > flight_modes.len) {
-                    rx.send_message(&.{ .COMMAND_ACK = .{
-                        .command = .MAV_CMD_REQUEST_MESSAGE,
-                        .result = .MAV_RESULT_DENIED,
-                    } }, .{}) catch return;
-                    log.warn("invalid available modes request: {d}", .{rx.send_available_modes.current_index});
-                    rx.send_available_modes.state = .idle;
-                    break :send_available_modes;
-                } else {
-                    rx.send_message(&.{ .COMMAND_ACK = .{
-                        .command = .MAV_CMD_REQUEST_MESSAGE,
-                        .result = .MAV_RESULT_ACCEPTED,
-                    } }, .{}) catch return;
-                    rx.send_available_modes.state = .send;
-                }
-            },
-            .send => {
-                assert(rx.send_available_modes.current_index > 0);
-                assert(rx.send_available_modes.current_index <= flight_modes.len);
+        if (rx.send_available_modes) |*state| {
+            assert(state.current_index > 0);
 
-                const mode = &flight_modes[rx.send_available_modes.current_index - 1];
+            while (state.current_index <= flight_modes.len) : (state.current_index += 1) {
+                const mode = &flight_modes[state.current_index - 1];
                 var name: [35]u8 = @splat(0);
                 {
                     const src_name = mode.name orelse "";
@@ -406,57 +448,56 @@ pub const RxMavlink = struct {
                         .custom_mode = 0,
                         .properties = mode.properties,
                         .number_modes = @truncate(flight_modes.len),
-                        .mode_index = rx.send_available_modes.current_index,
+                        .mode_index = state.current_index,
                         .standard_mode = mode.standard,
                     },
                 }, .{}) catch return;
 
-                if (rx.send_available_modes.current_index == flight_modes.len or
-                    rx.send_available_modes.specific)
-                {
-                    rx.send_available_modes.state = .idle;
-                } else {
-                    rx.send_available_modes.current_index += 1;
-                    continue :send_available_modes .send;
+                if (state.specific) {
+                    break;
                 }
-            },
+            }
+
+            rx.send_available_modes = null;
         }
 
-        // whatever we don't send right away we mark as changed again
-        var changed_params = rx.param_watcher.get_and_clear();
-        defer rx.param_watcher.set(changed_params);
+        {
+            // whatever we don't send right away we mark as changed again
+            var changed_params = rx.param_watcher.get_and_clear();
+            defer rx.param_watcher.set(changed_params);
 
-        var it = changed_params.iterator(.{});
-        while (it.next()) |index| {
-            const value = parameter.get_dyn(index).?; // this can't fail since the bitset so many parameters
-            const id_str = parameter.ids[index];
-            const id = ParamId.from_slice(id_str) orelse {
-                log.warn("can't send param {s}: id too big", .{id_str});
-                continue;
-            };
-            rx.send_message(&.{
-                .PARAM_VALUE = .{
-                    .param_id = id.to_raw(),
-                    .param_value = switch (value) {
-                        inline else => |val| std.math.lossyCast(f32, val),
+            var it = changed_params.iterator(.{});
+            while (it.next()) |index| {
+                const value = parameter.get_dyn(index).?; // this can't fail since the bitset so many parameters
+                const id_str = parameter.ids[index];
+                const id = ParamId.from_slice(id_str) orelse {
+                    log.warn("can't send param {s}: id too big", .{id_str});
+                    continue;
+                };
+                rx.send_message(&.{
+                    .PARAM_VALUE = .{
+                        .param_id = id.to_raw(),
+                        .param_value = switch (value) {
+                            inline else => |val| std.math.lossyCast(f32, val),
+                        },
+                        .param_count = std.math.cast(u16, parameter.count) orelse break,
+                        .param_index = std.math.cast(u16, index) orelse break,
+                        .param_type = switch (value) {
+                            .i8 => .MAV_PARAM_TYPE_INT8,
+                            .i16 => .MAV_PARAM_TYPE_INT16,
+                            .i32 => .MAV_PARAM_TYPE_INT32,
+                            .i64 => .MAV_PARAM_TYPE_INT64,
+                            .u8 => .MAV_PARAM_TYPE_UINT8,
+                            .u16 => .MAV_PARAM_TYPE_UINT16,
+                            .u32 => .MAV_PARAM_TYPE_UINT32,
+                            .u64 => .MAV_PARAM_TYPE_UINT64,
+                            .f32 => .MAV_PARAM_TYPE_REAL32,
+                            .f64 => .MAV_PARAM_TYPE_REAL64,
+                        },
                     },
-                    .param_count = std.math.cast(u16, parameter.count) orelse break,
-                    .param_index = std.math.cast(u16, index) orelse break,
-                    .param_type = switch (value) {
-                        .i8 => .MAV_PARAM_TYPE_INT8,
-                        .i16 => .MAV_PARAM_TYPE_INT16,
-                        .i32 => .MAV_PARAM_TYPE_INT32,
-                        .i64 => .MAV_PARAM_TYPE_INT64,
-                        .u8 => .MAV_PARAM_TYPE_UINT8,
-                        .u16 => .MAV_PARAM_TYPE_UINT16,
-                        .u32 => .MAV_PARAM_TYPE_UINT32,
-                        .u64 => .MAV_PARAM_TYPE_UINT64,
-                        .f32 => .MAV_PARAM_TYPE_REAL32,
-                        .f64 => .MAV_PARAM_TYPE_REAL64,
-                    },
-                },
-            }, .{}) catch return;
-            changed_params.unset(index);
+                }, .{}) catch return;
+                changed_params.unset(index);
+            }
         }
     }
 
@@ -484,59 +525,57 @@ pub const RxMavlink = struct {
     }
 };
 
-// pub const Periodic = struct {
-//     const max_messages = 10;
-//     const Item = struct {
-//         offset: u32,
-//         period_in_ticks: u32,
-//         message_id: mavlink.MessageId,
-//         ready: bool = false,
-//     };
-//
-//     tick_period: time.Duration,
-//     count: u32 = 0,
-//     messages: bounded.Array(Item, max_messages) = .empty,
-//
-//     pub fn add(periodic: *Periodic, message_id: mavlink.MessageId, period: time.Duration) !void {
-//         const period_in_ticks: u32 = @truncate(period.to_us() / periodic.tick_period.to_us());
-//         if (period_in_ticks == 0) {
-//             return error.PeriodTooSmall;
-//         }
-//
-//         // trick to sparse the messages over the period, so they don't all
-//         // get sent at the same time
-//         const offset = periodic.count % period_in_ticks;
-//         periodic.count +%= 1;
-//
-//         for (periodic.messages.items()) |*item| {
-//             if (item.message_id == message_id) {
-//                 item.offset = offset;
-//                 item.period_in_ticks = period_in_ticks;
-//                 break;
-//             }
-//         } else try periodic.messages.append(.{
-//             .offset = offset,
-//             .period_in_ticks = period_in_ticks,
-//             .message_id = message_id,
-//         });
-//     }
-//
-//     pub fn tick(periodic: *Periodic) void {
-//         for (periodic.messages.items()) |*item| {
-//             if ((periodic.count +% item.offset) % item.period_in_ticks == 0) {
-//                 item.ready = true;
-//             }
-//         }
-//         periodic.count +%= 1;
-//     }
-// };
+pub const Periodic = struct {
+    const max_messages = 10;
+    const Item = struct {
+        offset: u32,
+        period_in_ticks: u32,
+        message_id: mavlink.MessageId,
+        ready: bool = false,
+    };
+
+    tick_period: time.Duration,
+    count: u32 = 0,
+    messages: bounded.Array(Item, max_messages) = .empty,
+
+    pub fn add(periodic: *Periodic, message_id: mavlink.MessageId, period: time.Duration) !void {
+        const period_in_ticks: u32 = @truncate(period.to_us() / periodic.tick_period.to_us());
+        if (period_in_ticks == 0) {
+            return error.PeriodTooSmall;
+        }
+
+        // trick to sparse the messages over the period, so they don't all
+        // get sent at the same time
+        const offset = periodic.count % period_in_ticks;
+        periodic.count +%= 1;
+
+        for (periodic.messages.items()) |*item| {
+            if (item.message_id == message_id) {
+                item.offset = offset;
+                item.period_in_ticks = period_in_ticks;
+                break;
+            }
+        } else try periodic.messages.append(.{
+            .offset = offset,
+            .period_in_ticks = period_in_ticks,
+            .message_id = message_id,
+        });
+    }
+
+    pub fn tick(periodic: *Periodic) void {
+        for (periodic.messages.items()) |*item| {
+            if ((periodic.count +% item.offset) % item.period_in_ticks == 0) {
+                item.ready = true;
+            }
+        }
+        periodic.count +%= 1;
+    }
+};
 
 pub const ChannelMapper = struct {
     arm_switch: ChannelCondition,
     rate_mode_enable: ChannelCondition,
     angle_mode_enable: ChannelCondition,
-    action_calibrate_imu: ChannelDetector,
-    action_save_config: ChannelDetector,
 
     rcv_channels: Receiver(Channels) = undefined,
 
@@ -554,21 +593,6 @@ pub const ChannelMapper = struct {
                 .ident = .{ .index = 6 },
                 .range = .{ .start = 1800, .end = 2100 },
             },
-            // TEMP
-            .action_calibrate_imu = .{
-                .cond = .{
-                    .ident = .{ .index = 7 },
-                    .range = .{ .start = 1300, .end = 1700 },
-                },
-                .debounce = 10,
-            },
-            .action_save_config = .{
-                .cond = .{
-                    .ident = .{ .index = 7 },
-                    .range = .{ .start = 1800, .end = 2100 },
-                },
-                .debounce = 10,
-            },
         };
 
         msg_channels.subscribe(&mapper.rcv_channels, *ChannelMapper, mapper, channels_callback, scheduler);
@@ -582,20 +606,6 @@ pub const ChannelMapper = struct {
         const rate_mode = mapper.rate_mode_enable.get(&channels);
         const angle_mode = mapper.angle_mode_enable.get(&channels);
 
-        if (mapper.action_calibrate_imu.detect(&channels)) |calibration_request| {
-            if (calibration_request) {
-                log.info("imu calibration requested", .{});
-                // imu.msg_calibrate.publish({});
-            }
-        }
-
-        if (mapper.action_save_config.detect(&channels)) |store_request| {
-            if (store_request) {
-                log.info("config save requested", .{});
-                // storage.msg_save.publish({});
-            }
-        }
-
         const throttle = us_to_0_1(channels.get(.throttle));
         const roll = us_to_neg1_1(channels.get(.roll));
         const pitch = us_to_neg1_1(channels.get(.pitch));
@@ -608,7 +618,7 @@ pub const ChannelMapper = struct {
                         .throttle = throttle,
                         .angle_roll = roll * ANGLE_MODE_MULT,
                         .angle_pitch = pitch * ANGLE_MODE_MULT,
-                        // .yaw = yaw * ANGLE_MODE_MULT,
+                        .rate_yaw = yaw * RATE_MODE_MULT,
                     },
                 } else if (rate_mode) .{ .rate = .{
                     .throttle = throttle,
