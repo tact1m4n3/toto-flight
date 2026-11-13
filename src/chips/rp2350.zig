@@ -540,10 +540,11 @@ pub const SPI = struct {
                 pin.set_function(.spi);
             }
 
+            // TODO: config can be validated at comptime
             cfg.instance.apply(.{
                 .clock_config = rp2xxx.clock_config,
                 .baud_rate = cfg.baud_rate,
-            });
+            }) catch @panic("failed to apply spi config");
         }
     }
 

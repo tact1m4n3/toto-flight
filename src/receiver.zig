@@ -147,6 +147,8 @@ pub const RxMavlink = struct {
             return @bitCast(id.buf);
         }
 
+        /// Creates a ParamId from a slice of bytes. Returns null if the slice
+        /// is longer than 16 bytes.
         pub fn from_slice(id: []const u8) ?ParamId {
             if (id.len > 16) return null;
             var buf: [16]u8 = @splat(0);
@@ -470,10 +472,7 @@ pub const RxMavlink = struct {
             while (it.next()) |index| {
                 const value = parameter.get_dyn(index).?; // this can't fail since the bitset so many parameters
                 const id_str = parameter.ids[index];
-                const id = ParamId.from_slice(id_str) orelse {
-                    log.warn("can't send param {s}: id too big", .{id_str});
-                    continue;
-                };
+                const id = ParamId.from_slice(id_str).?; // this can't fail since the id_str is always less than 16 bytes
                 rx.send_message(&.{
                     .PARAM_VALUE = .{
                         .param_id = id.to_raw(),

@@ -10,6 +10,7 @@ var table: Table = .default;
 /// Must only be accessed through a critical section.
 var watchers: std.SinglyLinkedList = .{};
 
+/// Guaranteed to be less than 16 bytes long.
 pub const ids = collect_param_ids(Table, "");
 pub const count = ids.len;
 pub const id_to_index: std.StaticStringMap(usize) = blk: {

@@ -1,6 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const microzig = @import("microzig");
+
 const hw = @import("hw.zig");
 const control = @import("control.zig");
 const Scheduler = @import("Scheduler.zig");
@@ -16,7 +18,7 @@ pub var msg_save: Message(void) = .{};
 pub var msg_load: Message(void) = .{};
 
 pub const Storage = struct {
-    const Driver = drivers.storage.StorageGeneric(hw.Flash, Key, .{});
+    const Driver = microzig.drivers.kv_store.Generic(hw.Flash, Key, .{});
 
     driver: Driver,
     rcv_save: Receiver(void) = undefined,
