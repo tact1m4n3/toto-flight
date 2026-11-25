@@ -127,11 +127,13 @@ pub const Flash = chip.Flash;
 pub const UART_Instance = enum {
     receiver,
     gps,
+    vtx,
 
     pub fn get_config(instance: UART_Instance) ?UART.Config {
         return switch (instance) {
             .receiver => def.receiver.uart,
             .gps => null, // TODO: add gps support
+            .vtx => if (def.vtx_msp) |vtx_msp| vtx_msp.uart else null,
         };
     }
 };
@@ -215,6 +217,10 @@ pub const Definition = struct {
     } = null,
 
     flash: Flash.Config,
+
+    vtx_msp: ?struct {
+        uart: UART.Config,
+    } = null,
 };
 
 pub const CPU_Usage = struct {

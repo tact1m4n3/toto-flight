@@ -35,8 +35,6 @@ pub const Rx = struct {
 };
 
 pub const Rx_CRSF = struct {
-    rcv_tick: Receiver(void) = undefined,
-
     parser: crsf.Parser = .{},
 
     pub fn init(rx: *Rx_CRSF, scheduler: *Scheduler) void {

@@ -261,7 +261,7 @@ pub const UART = struct {
         uart: rp2xxx.uart.UART,
         // pio: struct {
         //     pio: rp2xxx.pio.Pio,
-        //     sm: rp2xxx.pio.Pio,
+        //     sm: rp2xxx.pio.StateMachine,
         // },
 
         fn to_uart_instance(comptime hal_instance: HAL_Instance) ?hw.UART_Instance {
